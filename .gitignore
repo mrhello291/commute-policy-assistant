@@ -1,0 +1,17 @@
+# Assignment brief documents (kept local, not part of the submission)
+Case Study A – Shift-Change Request Agent.docx
+Case Study B – Commute Policy Assistant.docx
+Case Study C – Ask-Your-Data for Transport Admins.docx
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Local runtime data (SQLite registry, Chroma files)
+var/
