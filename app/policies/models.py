@@ -54,6 +54,8 @@ class Chunk:
     text: str
     # Names of injection patterns the scanner matched, empty when clean.
     flags: tuple[str, ...] = ()
+    # Whether the heading path is prepended for indexing (see indexed_text).
+    contextual: bool = True
 
     @property
     def indexed_text(self) -> str:
@@ -61,6 +63,9 @@ class Chunk:
 
         Prefixing the heading path gives short sections enough context to
         be found ("4.2 Security escort" alone says little about night drops).
+        The evaluation report compares retrieval with and without it.
         """
+        if not self.contextual:
+            return self.text
         heading = " > ".join((self.doc_title, *self.section_path))
         return f"{heading}\n\n{self.text}"

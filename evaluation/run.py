@@ -72,6 +72,8 @@ def build_settings(args: argparse.Namespace, data_dir: Path) -> Settings:
         overrides["embedder"] = EmbedderKind(args.embedder)
     if args.retriever:
         overrides["retriever"] = args.retriever
+    if args.no_headers:
+        overrides["contextual_headers"] = False
     return Settings(**overrides)
 
 
@@ -142,6 +144,7 @@ def run(args: argparse.Namespace) -> dict:
         "retriever": container.retriever.name,
         "llm": container.llm.name,
         "embedder": container.embedder.name,
+        "contextual_headers": settings.contextual_headers,
         "llm_available": llm_available,
     }
     out.with_suffix(".summary.json").write_text(json.dumps(summary, indent=2) + "\n")
@@ -167,6 +170,7 @@ def main() -> None:
     parser.add_argument("--retriever", choices=[k.value for k in RetrieverKind], help="default: from settings")
     parser.add_argument("--llm", choices=[p.value for p in LLMProvider], help="default: from settings")
     parser.add_argument("--embedder", choices=[e.value for e in EmbedderKind], help="default: minilm")
+    parser.add_argument("--no-headers", action="store_true", help="index plain section text (the 'before' chunking)")
     parser.add_argument("--cases", default=str(CASES_FILE))
     parser.add_argument("--only", help="comma-separated case ids")
     parser.add_argument("--name", help="results file name (default: the retriever name)")

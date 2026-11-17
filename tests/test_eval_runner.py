@@ -14,6 +14,7 @@ def test_runner_writes_the_required_fields(tmp_path):
         embedder="hashing",
         cases=str(CASES_FILE),
         only="arc-01,arc-16,cor-02",
+        no_headers=False,
         name=None,
         out=str(out),
         pace=0,

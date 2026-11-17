@@ -114,6 +114,7 @@ class ChromaPolicyStore:
             "section_path": "\x1f".join(chunk.section_path),
             "part": chunk.part,
             "flags": ",".join(chunk.flags),
+            "contextual": chunk.contextual,
         }
 
     @staticmethod
@@ -131,4 +132,5 @@ class ChromaPolicyStore:
             part=int(meta["part"]),
             text=text,
             flags=tuple(f for f in meta["flags"].split(",") if f),
+            contextual=bool(meta.get("contextual", True)),
         )

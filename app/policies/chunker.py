@@ -13,10 +13,11 @@ class SectionChunker:
     size windows would mix the end of one rule with the start of another.
     """
 
-    def __init__(self, max_chars: int = DEFAULT_MAX_CHARS):
+    def __init__(self, max_chars: int = DEFAULT_MAX_CHARS, contextual_headers: bool = True):
         if max_chars < 200:
             raise ValueError("max_chars is too small to hold a paragraph")
         self._max_chars = max_chars
+        self._contextual = contextual_headers
 
     def chunk(self, doc: PolicyDocument) -> list[Chunk]:
         chunks: list[Chunk] = []
@@ -35,6 +36,7 @@ class SectionChunker:
                         section_path=section.path,
                         part=part,
                         text=text,
+                        contextual=self._contextual,
                     )
                 )
         return chunks

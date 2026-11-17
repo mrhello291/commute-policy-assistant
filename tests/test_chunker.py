@@ -35,3 +35,9 @@ def test_long_section_splits_on_paragraphs_and_keeps_section_id():
     assert all(len(c.text) <= 400 for c in chunks)
     # No text is lost or duplicated.
     assert "\n\n".join(c.text for c in chunks) == "\n\n".join(paragraphs)
+
+
+def test_headers_can_be_turned_off_for_comparison():
+    doc = make_doc(Section("2.1", "Escort", ("2. Night", "2.1 Escort"), "After 9 PM."))
+    chunk = SectionChunker(contextual_headers=False).chunk(doc)[0]
+    assert chunk.indexed_text == "After 9 PM."

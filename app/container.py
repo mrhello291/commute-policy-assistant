@@ -13,6 +13,7 @@ from app.config import EmbedderKind, LLMProvider, RetrieverKind, Settings
 from app.llm.base import LLMClient, UnconfiguredLLM
 from app.llm.gemini_client import GeminiLLMClient
 from app.llm.groq_client import GroqLLMClient
+from app.policies.chunker import SectionChunker
 from app.policies.ingestion import IngestionService
 from app.policies.registry import PolicyRegistry
 from app.policies.seed import PolicySeeder
@@ -70,7 +71,12 @@ class Container:
         self.embedder = embedder or build_embedder(settings.embedder)
         self.registry = PolicyRegistry(settings.data_dir / "registry.db")
         self.store = ChromaPolicyStore(settings.data_dir / "chroma")
-        self.ingestion = IngestionService(self.registry, self.store, self.embedder)
+        self.ingestion = IngestionService(
+            self.registry,
+            self.store,
+            self.embedder,
+            chunker=SectionChunker(contextual_headers=settings.contextual_headers),
+        )
         self.llm = llm or build_llm(settings)
         self.retriever = self._build_retriever()
         self.answering = QuestionAnsweringService(self.registry, self.retriever, self.llm, settings)

@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # "hashing" is only meant for tests; it has no semantic understanding.
     embedder: EmbedderKind = EmbedderKind.MINILM
     retriever: RetrieverKind = RetrieverKind.DENSE
+    # Prefix each chunk with its document and section headings before
+    # indexing. Turn off only to reproduce the "before" evaluation run.
+    contextual_headers: bool = True
 
     # LLM provider. Keys come from the environment only.
     llm_provider: LLMProvider = LLMProvider.AUTO
