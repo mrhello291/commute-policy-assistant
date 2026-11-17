@@ -2,16 +2,13 @@ import dataclasses
 
 import pytest
 
-from app.container import Container
 from app.errors import TenantIsolationError
 from app.retrieval.retriever import DenseRetriever, ensure_same_tenant
 
 
 @pytest.fixture
-def container(settings):
-    container = Container(settings)
-    container.startup()
-    return container
+def container(seeded_container):
+    return seeded_container
 
 
 def test_dense_retriever_finds_the_relevant_section(container):

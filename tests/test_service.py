@@ -12,7 +12,6 @@ import pytest
 from app import messages
 from app.answering.service import AnswerStatus, QuestionAnsweringService
 from app.auth import Principal, Role
-from app.container import Container
 from app.llm.base import LLMNotConfigured, LLMRateLimited, LLMTimeout, LLMUnavailable
 from app.llm.fake import ScriptedLLM
 from app.retrieval.retriever import DenseRetriever
@@ -25,21 +24,8 @@ def reply(verdict="answered", answer="A security escort travels on drops after 7
 
 
 @pytest.fixture(scope="module")
-def container(tmp_path_factory):
-    from app.config import EmbedderKind, LLMProvider, Settings
-    from tests.conftest import POLICY_DIR
-
-    settings = Settings(
-        _env_file=None,
-        data_dir=tmp_path_factory.mktemp("service"),
-        policy_seed_dir=POLICY_DIR,
-        embedder=EmbedderKind.HASHING,
-        llm_provider=LLMProvider.NONE,
-        jwt_secret="test-secret-that-is-at-least-32-bytes-long",
-    )
-    container = Container(settings)
-    container.startup()
-    return container
+def container(seeded_container):
+    return seeded_container
 
 
 def make_service(container, llm, retriever=None, **overrides):

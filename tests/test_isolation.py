@@ -7,10 +7,7 @@ Nothing from another company may ever come back, at any depth.
 
 import pytest
 
-from app.config import EmbedderKind, Settings
-from app.container import Container
 from app.retrieval.retriever import DenseRetriever
-from tests.conftest import POLICY_DIR
 
 COMPANIES = ["arcadia", "bluepeak", "corvane"]
 
@@ -26,17 +23,8 @@ TRAPS = [
 
 
 @pytest.fixture(scope="module")
-def container(tmp_path_factory):
-    settings = Settings(
-        _env_file=None,
-        data_dir=tmp_path_factory.mktemp("isolation"),
-        policy_seed_dir=POLICY_DIR,
-        embedder=EmbedderKind.HASHING,
-        jwt_secret="test-secret-that-is-at-least-32-bytes-long",
-    )
-    container = Container(settings)
-    container.startup()
-    return container
+def container(seeded_container):
+    return seeded_container
 
 
 @pytest.mark.parametrize("company", COMPANIES)
