@@ -9,7 +9,7 @@ from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +21,13 @@ class Environment(StrEnum):
 class EmbedderKind(StrEnum):
     MINILM = "minilm"
     HASHING = "hashing"
+
+
+class LLMProvider(StrEnum):
+    AUTO = "auto"  # first provider with a key set: Groq, then Gemini
+    GROQ = "groq"
+    GEMINI = "gemini"
+    NONE = "none"
 
 
 class Settings(BaseSettings):
@@ -35,6 +42,11 @@ class Settings(BaseSettings):
 
     # "hashing" is only meant for tests; it has no semantic understanding.
     embedder: EmbedderKind = EmbedderKind.MINILM
+
+    # LLM provider. Keys come from the environment only.
+    llm_provider: LLMProvider = LLMProvider.AUTO
+    groq_api_key: SecretStr | None = None
+    groq_model: str = "openai/gpt-oss-20b"
 
     # JWT (the mock identity provider and the API share this secret).
     jwt_secret: str = Field(default="dev-only-secret-change-me-before-deploying", min_length=32)
