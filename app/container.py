@@ -8,6 +8,7 @@ import logging
 from datetime import timedelta
 
 from app.auth import TokenIssuer, TokenVerifier
+from app.answering.service import QuestionAnsweringService
 from app.config import EmbedderKind, LLMProvider, Settings
 from app.llm.base import LLMClient, UnconfiguredLLM
 from app.llm.gemini_client import GeminiLLMClient
@@ -16,6 +17,7 @@ from app.policies.ingestion import IngestionService
 from app.policies.registry import PolicyRegistry
 from app.policies.seed import PolicySeeder
 from app.retrieval.embeddings import Embedder, HashingEmbedder, MiniLMEmbedder
+from app.retrieval.retriever import DenseRetriever
 from app.retrieval.vector_store import ChromaPolicyStore
 
 log = logging.getLogger(__name__)
@@ -69,6 +71,8 @@ class Container:
         self.store = ChromaPolicyStore(settings.data_dir / "chroma")
         self.ingestion = IngestionService(self.registry, self.store, self.embedder)
         self.llm = llm or build_llm(settings)
+        self.retriever = DenseRetriever(self.store, self.embedder)
+        self.answering = QuestionAnsweringService(self.registry, self.retriever, self.llm, settings)
 
     def startup(self) -> None:
         """Repair anything a previous crash left behind, then load sample policies."""

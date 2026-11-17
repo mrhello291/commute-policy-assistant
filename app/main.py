@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 
-from app.api import error_handlers, routes_dev, routes_policies
+from app.api import error_handlers, routes_ask, routes_dev, routes_policies
 from app.api.deps import get_principal
 from app.auth import Principal
 from app.config import Settings, get_settings
@@ -37,6 +37,7 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     def whoami(principal: Principal = Depends(get_principal)) -> dict[str, str]:
         return {"subject": principal.subject, "company_id": principal.company_id, "role": principal.role}
 
+    app.include_router(routes_ask.router)
     app.include_router(routes_policies.router)
     if settings.is_dev:
         app.include_router(routes_dev.router)
