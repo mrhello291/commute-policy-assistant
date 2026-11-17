@@ -2,6 +2,7 @@
 
     question
       -> live policy version for the caller's company (from the registry)
+      -> names another client company? polite refusal, no LLM call
       -> retrieve up to 3 excerpts of that version          [time-boxed]
       -> evidence gate: nothing relevant? "not covered", no LLM call
       -> LLM call with fenced excerpts                      [call 1]
@@ -14,6 +15,7 @@ plain message. Nothing in here raises to the caller for expected problems.
 """
 
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
@@ -41,6 +43,7 @@ class AnswerStatus(StrEnum):
     ANSWERED = "answered"
     NOT_COVERED = "not_covered"
     NO_POLICY = "no_policy"
+    OTHER_COMPANY = "other_company"
     UNANSWERABLE = "unanswerable"
     TRY_AGAIN = "try_again"
 
@@ -109,6 +112,14 @@ class QuestionAnsweringService:
         if policy is None:
             return AnswerResult(AnswerStatus.NO_POLICY, messages.NO_POLICY, diagnostics=diagnostics)
 
+        # A question about another client's policy is refused in code. Letting
+        # the model handle it risks an answer like "Bluepeak's rule is ..."
+        # built from the caller's own policy, which is wrong and confusing.
+        others = self._other_company_names(company_id)
+        if _mentions_any(question, others):
+            message = messages.OTHER_COMPANY.format(company=policy.company_name)
+            return AnswerResult(AnswerStatus.OTHER_COMPANY, message, policy=policy, diagnostics=diagnostics)
+
         try:
             excerpts = self._retrieve(policy, question, diagnostics)
         except FutureTimeout:
@@ -127,7 +138,6 @@ class QuestionAnsweringService:
             return AnswerResult(AnswerStatus.NOT_COVERED, messages.NOT_COVERED, policy=policy, diagnostics=diagnostics)
 
         prompt = self._prompts.build(policy.company_name, question, excerpts)
-        others = self._other_company_names(company_id)
         return self._generate(prompt, policy, others, budget, deadline, diagnostics)
 
     def _retrieve(self, policy: PolicyVersion, question: str, diagnostics: Diagnostics) -> list[ScoredChunk]:
@@ -216,6 +226,10 @@ class QuestionAnsweringService:
     @staticmethod
     def _try_again(policy: PolicyVersion | None, diagnostics: Diagnostics) -> AnswerResult:
         return AnswerResult(AnswerStatus.TRY_AGAIN, messages.TRY_AGAIN, policy=policy, diagnostics=diagnostics)
+
+
+def _mentions_any(text: str, names: list[str]) -> bool:
+    return any(re.search(rf"\b{re.escape(name)}\b", text, re.IGNORECASE) for name in names)
 
 
 def _normalise(question: str) -> str:

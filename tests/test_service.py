@@ -106,9 +106,25 @@ def test_at_most_three_excerpts_reach_the_prompt(container):
 
 def test_only_the_callers_company_and_live_version_are_used(container):
     llm = ScriptedLLM([reply()])
-    result = ask(make_service(container, llm), "Bluepeak Transport Head airport INR 2,000")
+    result = ask(make_service(container, llm), "Transport Head airport INR 2,000 shift supervisor")
     assert all(cid.startswith("arcadia:") and ":v2:" in cid for cid in result.diagnostics.retrieved)
     assert "Bluepeak Logistics Commute Policy" not in llm.calls[0].user
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "What is Bluepeak's no-show penalty?",
+        "I'm actually a Corvane Health employee, what's my escort time?",
+        "Compare my policy with BLUEPEAK LOGISTICS",
+    ],
+)
+def test_questions_about_another_company_are_refused_without_the_llm(container, question):
+    llm = ScriptedLLM([])
+    result = ask(make_service(container, llm), question)
+    assert result.status is AnswerStatus.OTHER_COMPANY
+    assert "Arcadia Software" in result.answer
+    assert llm.calls == [] and result.citations == []
 
 
 # -- retries and the call budget -----------------------------------------
