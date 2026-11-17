@@ -18,11 +18,13 @@ half-written chunks are removed.
 """
 
 import logging
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from app.errors import IngestionFailed, PermissionDenied
 from app.policies.chunker import SectionChunker
+from app.policies.models import PolicyDocument
 from app.policies.parser import MarkdownPolicyParser
 from app.policies.registry import PolicyRegistry
 from app.policies.scanner import InjectionScanner
@@ -66,6 +68,10 @@ class IngestionService:
         self._chunker = chunker or SectionChunker()
         self._scanner = scanner or InjectionScanner()
         self._listeners: list[Callable[[str], None]] = []
+        # Uploads are rare, so one lock for all of them is simplest. Without
+        # it, two uploads of the same version could each clean up the other's
+        # chunks. (One process only; several workers would need a DB lock.)
+        self._lock = threading.Lock()
 
     def on_activate(self, listener: Callable[[str], None]) -> None:
         """Call `listener(company_id)` whenever a company's live version changes."""
@@ -80,7 +86,10 @@ class IngestionService:
         doc = self._parser.parse(raw)
         if acting_company is not None and doc.company_id != acting_company:
             raise PermissionDenied("policy belongs to a different company")
+        with self._lock:
+            return self._ingest(doc)
 
+    def _ingest(self, doc: PolicyDocument) -> IngestionReport:
         live = self._registry.active(doc.company_id)
         if live and live.version == doc.version and live.checksum == doc.checksum:
             return IngestionReport(doc.company_id, doc.version, activated=False, note="already active")
@@ -136,9 +145,12 @@ class IngestionService:
     def _abandon(self, company_id: str, version: int, detail: str) -> None:
         try:
             self._registry.mark_failed(company_id, version, detail)
+            live = self._registry.active(company_id)
         except Exception:
             log.exception("could not mark %s v%s as failed", company_id, version)
-        self._delete_quietly(company_id, version)
+            return  # can't confirm it isn't live, so leave the chunks for reconcile()
+        if live is None or live.version != version:
+            self._delete_quietly(company_id, version)
 
     def _delete_quietly(self, company_id: str, version: int) -> None:
         try:

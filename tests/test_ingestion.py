@@ -164,3 +164,16 @@ def test_listeners_hear_about_activation(paths):
     service.ingest(ARCADIA_V1)
     service.ingest(ARCADIA_V1)
     assert heard == ["arcadia"]
+
+
+def test_concurrent_uploads_of_same_version_leave_one_clean_copy(paths):
+    from concurrent.futures import ThreadPoolExecutor
+
+    service, registry, store = make_service(paths)
+    service.ingest(ARCADIA_V1)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        reports = list(pool.map(lambda _: service.ingest(ARCADIA_V2), range(4)))
+    [activated] = [r for r in reports if r.activated]
+    assert registry.active("arcadia").version == 2
+    assert versions_in_store(store) == {2}
+    assert len(store.chunks("arcadia", 2)) == activated.chunk_count
