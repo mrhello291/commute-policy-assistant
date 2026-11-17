@@ -130,12 +130,9 @@ class PolicyRegistry:
                 (doc.company_id,),
             ).fetchone()["v"]
             if live is not None and doc.version <= live:
-                raise VersionConflict(
-                    f"version {doc.version} is not newer than version {live} for {doc.company_id}"
-                )
+                raise VersionConflict(f"version {doc.version} is not newer than version {live} for {doc.company_id}")
             conn.execute(
-                "DELETE FROM policy_versions WHERE company_id = ? AND version = ? "
-                "AND status IN ('staging', 'failed')",
+                "DELETE FROM policy_versions WHERE company_id = ? AND version = ? AND status IN ('staging', 'failed')",
                 (doc.company_id, doc.version),
             )
             conn.execute(
@@ -163,8 +160,7 @@ class PolicyRegistry:
                 (company_id,),
             )
             conn.execute(
-                "UPDATE policy_versions SET status = 'active', activated_at = ? "
-                "WHERE company_id = ? AND version = ?",
+                "UPDATE policy_versions SET status = 'active', activated_at = ? WHERE company_id = ? AND version = ?",
                 (_now(), company_id, version),
             )
         return previous["version"] if previous else None

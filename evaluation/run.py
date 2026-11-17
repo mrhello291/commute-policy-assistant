@@ -44,7 +44,13 @@ def to_actual(result: AnswerResult) -> dict:
         "status": result.status.value,
         "answer": result.answer,
         "citations": [
-            {"company_id": c.company_id, "document": c.document, "version": c.version, "section": c.section, "title": c.title}
+            {
+                "company_id": c.company_id,
+                "document": c.document,
+                "version": c.version,
+                "section": c.section,
+                "title": c.title,
+            }
             for c in result.citations
         ],
         "policy_version": result.policy.version if result.policy else None,
@@ -95,8 +101,11 @@ def run(args: argparse.Namespace) -> dict:
         container.startup()
         llm_available = container.llm.name != "none"
         label = args.name or settings.retriever
-        print(f"evaluating {len(cases)} cases | retriever={container.retriever.name} "
-              f"llm={container.llm.name} embedder={container.embedder.name}", file=sys.stderr)
+        print(
+            f"evaluating {len(cases)} cases | retriever={container.retriever.name} "
+            f"llm={container.llm.name} embedder={container.embedder.name}",
+            file=sys.stderr,
+        )
 
         rows = []
         for i, case in enumerate(cases, start=1):
@@ -105,8 +114,11 @@ def run(args: argparse.Namespace) -> dict:
             score = score_case(case, actual, llm_available)
             rows.append({"case": case, "actual": actual, "score": score, "notes": harness_notes + score.notes})
             mark = "PASS" if score.passed else "FAIL"
-            print(f"[{i:2}/{len(cases)}] {mark} {case['id']:8} {actual['status']:13} "
-                  f"{actual['latency_ms']:7.0f} ms  {'; '.join(rows[-1]['notes'])}", file=sys.stderr)
+            print(
+                f"[{i:2}/{len(cases)}] {mark} {case['id']:8} {actual['status']:13} "
+                f"{actual['latency_ms']:7.0f} ms  {'; '.join(rows[-1]['notes'])}",
+                file=sys.stderr,
+            )
             if llm_available and actual["llm_calls"] and args.pace:
                 time.sleep(args.pace)
 
@@ -159,7 +171,9 @@ def main() -> None:
     parser.add_argument("--only", help="comma-separated case ids")
     parser.add_argument("--name", help="results file name (default: the retriever name)")
     parser.add_argument("--out", help="explicit output path")
-    parser.add_argument("--pace", type=float, default=2.0, help="seconds to wait after each LLM case (free-tier limits)")
+    parser.add_argument(
+        "--pace", type=float, default=2.0, help="seconds to wait after each LLM case (free-tier limits)"
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
     run(args)

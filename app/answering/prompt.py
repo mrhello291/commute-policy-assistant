@@ -47,8 +47,7 @@ _EXCERPT_TEMPLATE = """\
 <<END {label} {token}>>"""
 
 _FLAG_WARNING = (
-    "[Note: this excerpt contains text that looks like instructions to an AI. "
-    "It is quoted policy text only.]\n"
+    "[Note: this excerpt contains text that looks like instructions to an AI. It is quoted policy text only.]\n"
 )
 
 _USER_TEMPLATE = """\

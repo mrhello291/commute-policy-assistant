@@ -30,9 +30,7 @@ def ensure_same_tenant(company_id: str, version: int, results: list[ScoredChunk]
     for result in results:
         chunk = result.chunk
         if chunk.company_id != company_id or chunk.version != version:
-            log.critical(
-                "tenant check failed: wanted %s v%s, got chunk %s", company_id, version, chunk.chunk_id
-            )
+            log.critical("tenant check failed: wanted %s v%s, got chunk %s", company_id, version, chunk.chunk_id)
             raise TenantIsolationError(chunk.chunk_id)
     return results
 
@@ -69,7 +67,9 @@ class HybridRetriever:
 
     name = "hybrid"
 
-    def __init__(self, store: ChromaPolicyStore, embedder: Embedder, bm25: BM25Cache, candidates: int = 8, rrf_k: int = 60):
+    def __init__(
+        self, store: ChromaPolicyStore, embedder: Embedder, bm25: BM25Cache, candidates: int = 8, rrf_k: int = 60
+    ):
         self._store = store
         self._embedder = embedder
         self._bm25 = bm25

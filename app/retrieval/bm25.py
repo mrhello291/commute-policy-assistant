@@ -54,7 +54,7 @@ class BM25Index:
         if self._bm25 is None or not terms:
             return []
         scores = self._bm25.get_scores(terms)
-        ranked = sorted(zip(self.chunks, scores), key=lambda pair: pair[1], reverse=True)
+        ranked = sorted(zip(self.chunks, scores, strict=True), key=lambda pair: pair[1], reverse=True)
         return [(chunk, float(score)) for chunk, score in ranked[:k] if score > 0]
 
 

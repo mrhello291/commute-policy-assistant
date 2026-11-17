@@ -133,5 +133,9 @@ def summarise(rows: list[dict]) -> dict:
         },
         "leaks": leaks,
         "llm_calls": {"max": max(calls, default=0), "mean": round(statistics.mean(calls), 2) if calls else 0},
-        "latency_ms": {"p50": percentile(latencies, 50), "p95": percentile(latencies, 95), "max": max(latencies, default=None)},
+        "latency_ms": {
+            "p50": percentile(latencies, 50),
+            "p95": percentile(latencies, 95),
+            "max": max(latencies, default=None),
+        },
     }

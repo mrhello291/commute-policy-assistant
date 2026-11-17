@@ -4,7 +4,7 @@ from app.retrieval.embeddings import HashingEmbedder
 
 
 def cosine(a, b):
-    return sum(x * y for x, y in zip(a, b))
+    return sum(x * y for x, y in zip(a, b, strict=True))
 
 
 def test_hashing_embedder_is_deterministic_and_normalised():

@@ -98,8 +98,13 @@ class QuestionAnsweringService:
         diagnostics.total_ms = round((time.perf_counter() - started) * 1000, 1)
         log.info(
             "question company=%s status=%s llm_calls=%d total_ms=%.0f retrieval_ms=%.0f top_sim=%s failure=%s",
-            principal.company_id, result.status, diagnostics.llm_calls, diagnostics.total_ms,
-            diagnostics.retrieval_ms, diagnostics.top_similarity, diagnostics.failure or "-",
+            principal.company_id,
+            result.status,
+            diagnostics.llm_calls,
+            diagnostics.total_ms,
+            diagnostics.retrieval_ms,
+            diagnostics.top_similarity,
+            diagnostics.failure or "-",
         )
         return result
 
@@ -202,7 +207,9 @@ class QuestionAnsweringService:
 
         diagnostics.failure = type(last_problem).__name__ if last_problem else "deadline"
         if isinstance(last_problem, AnswerRejected):
-            return AnswerResult(AnswerStatus.UNANSWERABLE, messages.UNANSWERABLE, policy=policy, diagnostics=diagnostics)
+            return AnswerResult(
+                AnswerStatus.UNANSWERABLE, messages.UNANSWERABLE, policy=policy, diagnostics=diagnostics
+            )
         return self._try_again(policy, diagnostics)
 
     def _success(

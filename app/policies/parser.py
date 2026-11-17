@@ -82,7 +82,7 @@ class MarkdownPolicyParser:
             "version": version,
             "effective_from": effective_from,
         }
-        return clean, raw[match.end():]
+        return clean, raw[match.end() :]
 
     # -- sections ---------------------------------------------------------
 
@@ -134,8 +134,9 @@ class MarkdownPolicyParser:
             open_headings[level] = (section_id, title)
             if level == 2:
                 open_headings.pop(3, None)
-            path = tuple(f"{sid} {t}" if "." in sid else f"{sid}. {t}"
-                         for lvl, (sid, t) in sorted(open_headings.items()))
+            path = tuple(
+                f"{sid} {t}" if "." in sid else f"{sid}. {t}" for lvl, (sid, t) in sorted(open_headings.items())
+            )
             current = (section_id, title, path)
 
         flush()

@@ -78,19 +78,17 @@ class ChromaPolicyStore:
         )
         scored = []
         for chunk_id, text, meta, distance in zip(
-            result["ids"][0], result["documents"][0], result["metadatas"][0], result["distances"][0]
+            result["ids"][0], result["documents"][0], result["metadatas"][0], result["distances"][0], strict=True
         ):
             similarity = 1.0 - float(distance)
             scored.append(ScoredChunk(self._to_chunk(chunk_id, text, meta), similarity, similarity))
         return scored
 
     def chunks(self, company_id: str, version: int) -> list[Chunk]:
-        result = self._collection(company_id).get(
-            where={"version": version}, include=["documents", "metadatas"]
-        )
+        result = self._collection(company_id).get(where={"version": version}, include=["documents", "metadatas"])
         chunks = [
             self._to_chunk(i, t, m)
-            for i, t, m in zip(result["ids"], result["documents"], result["metadatas"])
+            for i, t, m in zip(result["ids"], result["documents"], result["metadatas"], strict=True)
         ]
         return sorted(chunks, key=lambda c: c.chunk_id)
 

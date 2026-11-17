@@ -37,9 +37,7 @@ def install(app: FastAPI) -> None:
         except Exception:
             # Raised past every handler; still answer in our own format.
             log.exception("unhandled error request_id=%s", request.state.request_id)
-            response = JSONResponse(
-                error_body(request, "error", messages.UNEXPECTED), status_code=500
-            )
+            response = JSONResponse(error_body(request, "error", messages.UNEXPECTED), status_code=500)
         response.headers[REQUEST_ID_HEADER] = request.state.request_id
         return response
 
@@ -71,18 +69,13 @@ def install(app: FastAPI) -> None:
 
     @app.exception_handler(IngestionFailed)
     async def on_ingestion_failed(request: Request, exc: IngestionFailed):
-        return JSONResponse(
-            error_body(request, "ingestion_failed", messages.POLICY_UPDATE_FAILED), status_code=503
-        )
+        return JSONResponse(error_body(request, "ingestion_failed", messages.POLICY_UPDATE_FAILED), status_code=503)
 
     @app.exception_handler(RequestValidationError)
     async def on_validation_error(request: Request, exc: RequestValidationError):
         # Field names and reasons are safe to show and help the caller fix
         # the request; the raw input values are not echoed back.
-        problems = [
-            {"field": ".".join(str(p) for p in err["loc"][1:]), "problem": err["msg"]}
-            for err in exc.errors()
-        ]
+        problems = [{"field": ".".join(str(p) for p in err["loc"][1:]), "problem": err["msg"]} for err in exc.errors()]
         body = error_body(request, "invalid_request", messages.BAD_REQUEST)
         body["problems"] = problems
         return JSONResponse(body, status_code=422)

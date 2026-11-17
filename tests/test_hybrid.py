@@ -26,11 +26,13 @@ def test_stemming_matches_simple_word_forms(a, b):
 
 
 def test_bm25_matches_exact_terms():
-    index = BM25Index([
-        chunk(section_id="8", text="INR 250 is deducted from the employee's salary."),
-        chunk(section_id="5", text="Weekend cabs need approval."),
-        chunk(section_id="7", text="Trips are capped at INR 1,000."),
-    ])
+    index = BM25Index(
+        [
+            chunk(section_id="8", text="INR 250 is deducted from the employee's salary."),
+            chunk(section_id="5", text="Weekend cabs need approval."),
+            chunk(section_id="7", text="Trips are capped at INR 1,000."),
+        ]
+    )
     hits = index.search("how much salary is cut", k=3)
     assert hits[0][0].section_id == "8"
     assert index.search("the and of", k=3) == []
@@ -48,7 +50,9 @@ def test_container_builds_hybrid_retriever(container):
 
 
 def test_hybrid_finds_keyword_match_and_stays_in_tenant(container):
-    results = container.retriever.retrieve("bluepeak", 1, "How much money gets cut from my salary if I keep missing my cab?", 3)
+    results = container.retriever.retrieve(
+        "bluepeak", 1, "How much money gets cut from my salary if I keep missing my cab?", 3
+    )
     assert results[0].chunk.section_id == "8"
     assert {r.chunk.company_id for r in results} == {"bluepeak"}
     assert len(results) == 3
@@ -57,8 +61,11 @@ def test_hybrid_finds_keyword_match_and_stays_in_tenant(container):
 def test_bm25_index_follows_new_versions(container, settings):
     from tests.conftest import POLICY_DIR
 
-    v3 = (POLICY_DIR / "arcadia" / "v2.md").read_text().replace("version: 2", "version: 3").replace(
-        "Guests must make their", "Pets and guests must make their"
+    v3 = (
+        (POLICY_DIR / "arcadia" / "v2.md")
+        .read_text()
+        .replace("version: 2", "version: 3")
+        .replace("Guests must make their", "Pets and guests must make their")
     )
     container.retriever.retrieve("arcadia", 2, "guests", 3)  # warm the cache
     container.ingestion.ingest(v3)

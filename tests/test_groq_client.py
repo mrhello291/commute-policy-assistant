@@ -43,7 +43,13 @@ def test_returns_content_and_sends_strict_schema():
 
 @pytest.mark.parametrize(
     "status,error",
-    [(429, LLMRateLimited), (401, LLMNotConfigured), (400, LLMBadResponse), (500, LLMUnavailable), (503, LLMUnavailable)],
+    [
+        (429, LLMRateLimited),
+        (401, LLMNotConfigured),
+        (400, LLMBadResponse),
+        (500, LLMUnavailable),
+        (503, LLMUnavailable),
+    ],
 )
 def test_http_errors_map_to_llm_errors(status, error):
     client = make_client(lambda request: httpx.Response(status, json={"error": {"message": "nope"}}))

@@ -9,8 +9,14 @@ from evaluation.run import CASES_FILE, run
 def test_runner_writes_the_required_fields(tmp_path):
     out = tmp_path / "results.jsonl"
     args = argparse.Namespace(
-        retriever="dense", llm="none", embedder="hashing", cases=str(CASES_FILE),
-        only="arc-01,arc-16,cor-02", name=None, out=str(out), pace=0,
+        retriever="dense",
+        llm="none",
+        embedder="hashing",
+        cases=str(CASES_FILE),
+        only="arc-01,arc-16,cor-02",
+        name=None,
+        out=str(out),
+        pace=0,
     )
     summary = run(args)
 

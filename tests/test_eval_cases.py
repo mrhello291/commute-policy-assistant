@@ -37,9 +37,7 @@ def test_case_is_well_formed(case):
         assert expected["must_include"], "answered cases need at least one fact to check"
 
 
-@pytest.mark.parametrize(
-    "case", [c for c in CASES if c["expected"]["status"] == "answered"], ids=lambda c: c["id"]
-)
+@pytest.mark.parametrize("case", [c for c in CASES if c["expected"]["status"] == "answered"], ids=lambda c: c["id"])
 def test_expected_facts_really_are_in_the_gold_sections(case):
     """Verifies the gold answers against the documents, not from memory."""
     sections = live_sections(case["company"])

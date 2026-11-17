@@ -7,8 +7,8 @@ hands it to whatever needs it. Tests build their own `Container` with fakes.
 import logging
 from datetime import timedelta
 
-from app.auth import TokenIssuer, TokenVerifier
 from app.answering.service import QuestionAnsweringService
+from app.auth import TokenIssuer, TokenVerifier
 from app.config import EmbedderKind, LLMProvider, RetrieverKind, Settings
 from app.llm.base import LLMClient, UnconfiguredLLM
 from app.llm.gemini_client import GeminiLLMClient
@@ -16,8 +16,8 @@ from app.llm.groq_client import GroqLLMClient
 from app.policies.ingestion import IngestionService
 from app.policies.registry import PolicyRegistry
 from app.policies.seed import PolicySeeder
-from app.retrieval.embeddings import Embedder, HashingEmbedder, MiniLMEmbedder
 from app.retrieval.bm25 import BM25Cache
+from app.retrieval.embeddings import Embedder, HashingEmbedder, MiniLMEmbedder
 from app.retrieval.retriever import DenseRetriever, HybridRetriever, Retriever
 from app.retrieval.vector_store import ChromaPolicyStore
 

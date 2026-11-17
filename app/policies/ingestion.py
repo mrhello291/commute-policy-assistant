@@ -109,7 +109,9 @@ class IngestionService:
         if flagged:
             log.warning(
                 "policy %s v%s has instruction-like text in sections %s",
-                doc.company_id, doc.version, ", ".join(flagged),
+                doc.company_id,
+                doc.version,
+                ", ".join(flagged),
             )
         if previous is not None:
             self._delete_quietly(doc.company_id, previous)

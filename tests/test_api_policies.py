@@ -46,7 +46,9 @@ def test_old_version_upload_is_a_conflict(client):
 
 
 def test_malformed_upload_explains_why(client):
-    response = client.post("/v1/policies", json={"content": "just some text"}, headers=auth(client, role="policy_admin"))
+    response = client.post(
+        "/v1/policies", json={"content": "just some text"}, headers=auth(client, role="policy_admin")
+    )
     assert response.status_code == 422
     assert "front matter" in response.json()["message"]
 

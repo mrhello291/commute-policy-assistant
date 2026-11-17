@@ -20,6 +20,7 @@ dependencies = [
 dev = [
     "pytest>=8",
     "httpx>=0.27",
+    "ruff>=0.6",
 ]
 
 [build-system]
@@ -35,3 +36,12 @@ filterwarnings = [
     # Third-party deprecation noise on newer Pythons, not ours to fix.
     "ignore::DeprecationWarning:chromadb.*",
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# FastAPI's Depends() in argument defaults is the framework's intended style.
+ignore = ["B008"]

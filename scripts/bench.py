@@ -67,8 +67,10 @@ def main() -> None:
 
     print(f"\nrequests: {sum(statuses.values())}  outcomes: {statuses}")
     if timings:
-        print(f"latency (all requests): p50={percentile(timings, 50):.0f} ms  "
-              f"p95={percentile(timings, 95):.0f} ms  max={max(timings):.0f} ms  n={len(timings)}")
+        print(
+            f"latency (all requests): p50={percentile(timings, 50):.0f} ms  "
+            f"p95={percentile(timings, 95):.0f} ms  max={max(timings):.0f} ms  n={len(timings)}"
+        )
 
 
 if __name__ == "__main__":

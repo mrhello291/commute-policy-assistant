@@ -17,7 +17,6 @@ from app.auth import Principal
 from app.config import Settings, get_settings
 from app.container import Container
 
-
 DEMO_PAGE = Path(__file__).resolve().parent.parent / "static" / "index.html"
 
 

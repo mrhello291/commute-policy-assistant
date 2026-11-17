@@ -24,7 +24,9 @@ def parse(text: str):
 
 
 def test_parses_front_matter_and_sections():
-    doc = parse(HEADER + """
+    doc = parse(
+        HEADER
+        + """
 # Acme Policy
 
 ## 1. Scope
@@ -36,7 +38,8 @@ Everyone.
 ### 2.1 Escort
 
 Escort after 9 PM.
-""")
+"""
+    )
     assert (doc.company_id, doc.version, doc.effective_from) == ("acme", 3, date(2026, 2, 1))
     assert [s.section_id for s in doc.sections] == ["1", "2.1"]
     escort = doc.sections[1]
