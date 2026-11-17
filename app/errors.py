@@ -16,3 +16,7 @@ class AuthError(AppError):
 
 class PermissionDenied(AppError):
     """The caller is authenticated but not allowed to do this."""
+
+
+class PolicyFormatError(AppError):
+    """A policy document could not be parsed. Nothing has been stored."""
