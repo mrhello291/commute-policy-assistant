@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     policy_seed_dir: Path = Path("data/policies")
 
     # JWT (the mock identity provider and the API share this secret).
-    jwt_secret: str = Field(default="dev-only-secret-change-me", min_length=16)
+    jwt_secret: str = Field(default="dev-only-secret-change-me-before-deploying", min_length=32)
     jwt_issuer: str = "moveinsync-mock-idp"
     jwt_audience: str = "commute-policy-assistant"
     jwt_ttl_minutes: int = 480
