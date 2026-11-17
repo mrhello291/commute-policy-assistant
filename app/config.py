@@ -50,6 +50,18 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     gemini_model: str = "gemini-3.5-flash-lite"
 
+    # Answering limits. See the README section "Staying inside the numbers".
+    max_llm_calls: int = Field(default=2, ge=1, le=2)
+    max_cited_chunks: int = Field(default=3, ge=1, le=3)
+    request_deadline_s: float = 2.8
+    llm_timeout_s: float = 2.2
+    retrieval_timeout_s: float = 0.8
+    # Don't start an LLM call with less time than this left; say "try again" instead.
+    min_llm_window_s: float = 0.5
+    # Below this cosine similarity the policy is treated as silent on the
+    # question and no LLM call is made.
+    evidence_min_similarity: float = 0.25
+
     # JWT (the mock identity provider and the API share this secret).
     jwt_secret: str = Field(default="dev-only-secret-change-me-before-deploying", min_length=32)
     jwt_issuer: str = "moveinsync-mock-idp"
