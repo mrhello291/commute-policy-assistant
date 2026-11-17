@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commute Policy Assistant</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5b6475; --border: #dde1e8;
+    --accent: #2457c5; --accent-text: #ffffff; --ok: #1f7a4d; --warn: #9a6200; --bad: #b42318; --chip: #eef1f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1b2029; --text: #e6e9ef; --muted: #9aa3b2; --border: #2c3340;
+      --accent: #6d97ff; --accent-text: #0b0e14; --ok: #5cc98f; --warn: #f0b44c; --bad: #ff7b72; --chip: #252b36;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 820px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .who { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .who label { color: var(--muted); font-size: .9rem; }
+  select, input, button { font: inherit; color: inherit; }
+  select, input[type=text] { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  button { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
+  button:disabled { opacity: .55; cursor: progress; }
+  .policy { color: var(--muted); font-size: .9rem; }
+  #log { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+  .q { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-radius: 12px 12px 2px 12px; padding: 8px 12px; max-width: 85%; }
+  .a { align-self: flex-start; max-width: 100%; width: 100%; }
+  .status { display: inline-block; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 999px; background: var(--chip); margin-bottom: 6px; }
+  .status.answered { color: var(--ok); } .status.try_again { color: var(--bad); } .status.not_covered, .status.other_company, .status.no_policy, .status.unanswerable { color: var(--warn); }
+  .cite { border-left: 3px solid var(--accent); background: var(--chip); padding: 6px 10px; margin-top: 8px; border-radius: 0 6px 6px 0; font-size: .9rem; }
+  .cite b { display: block; }
+  .meta { color: var(--muted); font-size: .8rem; margin-top: 6px; }
+  form.ask { display: flex; gap: 8px; }
+  form.ask input { flex: 1; min-width: 0; }
+  .hints { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .hints button { background: var(--chip); color: var(--text); font-weight: 400; padding: 5px 10px; font-size: .85rem; }
+  @media (max-width: 520px) { form.ask { flex-direction: column; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Commute Policy Assistant</h1>
+  <p class="sub">Answers come only from your company's live transport policy, with the section they came from.</p>
+
+  <div class="panel">
+    <div class="who">
+      <label for="company">Signed in as an employee of</label>
+      <select id="company">
+        <option value="arcadia">Arcadia Software</option>
+        <option value="bluepeak">Bluepeak Logistics</option>
+        <option value="corvane">Corvane Health</option>
+      </select>
+      <span class="policy" id="policy"></span>
+    </div>
+    <form class="ask" id="ask">
+      <input type="text" id="question" placeholder="Ask about your transport policy…" maxlength="500" autocomplete="off" required>
+      <button type="submit" id="send">Ask</button>
+    </form>
+    <div class="hints" id="hints"></div>
+  </div>
+
+  <div id="log" aria-live="polite"></div>
+</main>
+<script>
+const HINTS = [
+  "Am I eligible for a 9:30 PM drop?",
+  "Can I book a cab on Saturday?",
+  "Who approves an airport trip?",
+  "What happens if I no-show twice?",
+  "Can I bring my dog in the cab?",
+  "What is Bluepeak's no-show penalty?",
+];
+const $ = (id) => document.getElementById(id);
+let token = null;
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+async function signIn() {
+  token = null;
+  $("policy").textContent = "";
+  const company = $("company").value;
+  const res = await fetch("/dev/token", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({subject: "demo-employee", company_id: company}),
+  });
+  if (!res.ok) { $("policy").textContent = "Sign-in is only available in dev mode."; return; }
+  token = (await res.json()).access_token;
+  const live = await (await fetch("/v1/policies/active", {headers: {Authorization: `Bearer ${token}`}})).json();
+  $("policy").textContent = live.version ? `Live policy: ${live.title}, version ${live.version}` : "No policy loaded yet";
+}
+
+async function ask(question) {
+  $("log").prepend(renderAnswerPlaceholder(question));
+  $("send").disabled = true;
+  const slot = $("log").firstChild.querySelector(".a");
+  try {
+    const res = await fetch("/v1/ask", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", Authorization: `Bearer ${token}`},
+      body: JSON.stringify({question}),
+    });
+    const body = await res.json();
+    renderAnswer(slot, body);
+  } catch (err) {
+    renderAnswer(slot, {status: "try_again", answer: "Couldn't reach the assistant. Please try again in a minute.", citations: []});
+  } finally {
+    $("send").disabled = false;
+  }
+}
+
+function renderAnswerPlaceholder(question) {
+  const turn = el("div");
+  turn.style.display = "contents";
+  turn.append(el("div", "q", question));
+  const a = el("div", "a panel");
+  a.append(el("span", "meta", "Thinking…"));
+  turn.append(a);
+  return turn;
+}
+
+function renderAnswer(slot, body) {
+  slot.replaceChildren();
+  const status = body.status || "error";
+  slot.append(el("span", `status ${status}`, status.replace("_", " ")));
+  slot.append(el("div", "", body.answer || body.message || "Something went wrong."));
+  for (const c of body.citations || []) {
+    const cite = el("div", "cite");
+    cite.append(el("b", "", `${c.document} · v${c.version} · §${c.section} ${c.title}`));
+    cite.append(el("span", "", c.excerpt));
+    slot.append(cite);
+  }
+  if (body.meta) slot.append(el("div", "meta", `${body.meta.llm_calls} LLM call(s) · ${Math.round(body.meta.latency_ms)} ms`));
+}
+
+for (const hint of HINTS) {
+  const b = el("button", "", hint);
+  b.type = "button";
+  b.onclick = () => { $("question").value = hint; $("ask").requestSubmit(); };
+  $("hints").append(b);
+}
+$("company").onchange = signIn;
+$("ask").onsubmit = (e) => {
+  e.preventDefault();
+  const q = $("question").value.trim();
+  if (q.length < 3 || !token) return;
+  $("question").value = "";
+  ask(q);
+};
+signIn();
+</script>
+</body>
+</html>
