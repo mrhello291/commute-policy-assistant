@@ -13,7 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app import messages
-from app.errors import AuthError, PermissionDenied
+from app.errors import AuthError, IngestionFailed, PermissionDenied, PolicyFormatError, VersionConflict
 
 log = logging.getLogger(__name__)
 
@@ -56,6 +56,24 @@ def install(app: FastAPI) -> None:
     async def on_permission_denied(request: Request, exc: PermissionDenied):
         log.info("permission denied request_id=%s reason=%s", request_id(request), exc)
         return JSONResponse(error_body(request, "forbidden", messages.NOT_ALLOWED), status_code=403)
+
+    # Policy errors are shown to the uploading admin. Their text is written
+    # by our own parser and registry, never copied from an exception chain.
+    @app.exception_handler(PolicyFormatError)
+    async def on_policy_format(request: Request, exc: PolicyFormatError):
+        message = messages.POLICY_UNREADABLE.format(reason=str(exc))
+        return JSONResponse(error_body(request, "invalid_policy", message), status_code=422)
+
+    @app.exception_handler(VersionConflict)
+    async def on_version_conflict(request: Request, exc: VersionConflict):
+        message = messages.POLICY_VERSION_CONFLICT.format(reason=str(exc).capitalize())
+        return JSONResponse(error_body(request, "version_conflict", message), status_code=409)
+
+    @app.exception_handler(IngestionFailed)
+    async def on_ingestion_failed(request: Request, exc: IngestionFailed):
+        return JSONResponse(
+            error_body(request, "ingestion_failed", messages.POLICY_UPDATE_FAILED), status_code=503
+        )
 
     @app.exception_handler(RequestValidationError)
     async def on_validation_error(request: Request, exc: RequestValidationError):
