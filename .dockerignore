@@ -5,3 +5,4 @@ var
 **/__pycache__
 .pytest_cache
 *.docx
+evaluation/results/offline-*

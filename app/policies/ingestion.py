@@ -116,7 +116,8 @@ class IngestionService:
         for listener in self._listeners:
             listener(doc.company_id)
 
-        log.info("activated %s v%s (%d chunks, replaced v%s)", doc.company_id, doc.version, len(chunks), previous)
+        replaced = f"replaced v{previous}" if previous is not None else "first version"
+        log.info("activated %s v%s (%d chunks, %s)", doc.company_id, doc.version, len(chunks), replaced)
         return IngestionReport(
             company_id=doc.company_id,
             version=doc.version,

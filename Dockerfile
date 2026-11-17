@@ -5,15 +5,24 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
+RUN useradd --create-home --uid 1000 app && mkdir -p /data /srv && chown app:app /data /srv
 WORKDIR /srv
 
 # Install dependencies first so code edits don't invalidate this layer.
 COPY pyproject.toml README.md ./
 RUN mkdir app && touch app/__init__.py && pip install ".[dev]" && rm -rf app
 
-COPY . .
+USER app
+# Download the MiniLM embedding model at build time, so the container starts
+# without internet access to the model host.
+RUN python -c "from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2 as M; M()(['warm up'])"
+
+COPY --chown=app:app . .
 
 ENV DATA_DIR=/data
 EXPOSE 8000
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
