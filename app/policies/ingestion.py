@@ -11,7 +11,7 @@ The sequence is the classic blue/green switch:
 4. Flip the registry's live pointer in one transaction. This is the only
    step that changes what users see.
 5. Delete the old version's chunks. If this fails nothing is wrong, only
-   untidy, since retrieval only ever reads the live version.
+   untidy: `reconcile()` removes leftovers on the next start.
 
 If anything in steps 2 to 4 fails, the old version stays live and the
 half-written chunks are removed.
@@ -19,7 +19,7 @@ half-written chunks are removed.
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.errors import IngestionFailed, PermissionDenied
 from app.policies.chunker import SectionChunker
@@ -42,6 +42,11 @@ class IngestionReport:
     flagged_sections: tuple[str, ...] = ()
     note: str = ""
 
+
+@dataclass(frozen=True)
+class ReconcileReport:
+    interrupted_versions: list[tuple[str, int]] = field(default_factory=list)
+    removed_chunks: int = 0
 
 
 class IngestionService:
@@ -112,6 +117,22 @@ class IngestionService:
             flagged_sections=flagged,
         )
 
+    def reconcile(self) -> ReconcileReport:
+        """Clean up after crashes: fail interrupted versions, drop stray chunks."""
+        interrupted = []
+        for version in self._registry.staging():
+            self._registry.mark_failed(version.company_id, version.version, "interrupted before activation")
+            interrupted.append((version.company_id, version.version))
+
+        removed = 0
+        for company_id in self._store.company_ids():
+            live = self._registry.active(company_id)
+            removed += self._store.delete_all_except(company_id, live.version if live else None)
+
+        if interrupted or removed:
+            log.warning("reconcile: interrupted=%s removed_chunks=%d", interrupted, removed)
+        return ReconcileReport(interrupted, removed)
+
     def _abandon(self, company_id: str, version: int, detail: str) -> None:
         try:
             self._registry.mark_failed(company_id, version, detail)
@@ -123,5 +144,6 @@ class IngestionService:
         try:
             self._store.delete_version(company_id, version)
         except Exception:
-            # Harmless: retrieval only reads the live version.
+            # Harmless: retrieval only reads the live version, and
+            # reconcile() removes these on the next start.
             log.exception("could not delete chunks of %s v%s", company_id, version)

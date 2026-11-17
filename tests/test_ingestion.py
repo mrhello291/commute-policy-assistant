@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 
 from app.errors import IngestionFailed, PermissionDenied, PolicyFormatError, VersionConflict
+from app.policies.chunker import SectionChunker
 from app.policies.ingestion import IngestionService
+from app.policies.parser import MarkdownPolicyParser
 from app.policies.registry import PolicyRegistry
 from app.retrieval.embeddings import HashingEmbedder
 from app.retrieval.vector_store import ChromaPolicyStore
@@ -121,6 +123,23 @@ def test_failed_version_can_be_retried(paths):
         service.ingest(ARCADIA_V2)
     service.ingest(ARCADIA_V2)
     assert registry.active("arcadia").version == 2
+
+
+def test_reconcile_cleans_up_after_a_process_crash(paths):
+    """Simulates the process dying after writing chunks but before activation."""
+    service, registry, store = make_service(paths)
+    service.ingest(ARCADIA_V1)
+    doc = MarkdownPolicyParser().parse(ARCADIA_V2)
+    registry.begin(doc)
+    chunks = SectionChunker().chunk(doc)
+    store.add(chunks, HashingEmbedder().embed([c.indexed_text for c in chunks]))
+
+    restarted, registry, store = make_service(paths)
+    report = restarted.reconcile()
+    assert report.interrupted_versions == [("arcadia", 2)]
+    assert report.removed_chunks == len(chunks)
+    assert registry.active("arcadia").version == 1
+    assert versions_in_store(store) == {1}
 
 
 def test_admin_cannot_ingest_for_another_company(paths):
