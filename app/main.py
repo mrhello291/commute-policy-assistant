@@ -4,6 +4,9 @@
 tests spin up isolated instances instead of sharing a module-level global.
 """
 
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 
 from app.api import error_handlers, routes_dev
@@ -17,7 +20,12 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     settings = settings or get_settings()
     container = container or Container(settings)
 
-    app = FastAPI(title="Commute Policy Assistant", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        container.startup()
+        yield
+
+    app = FastAPI(title="Commute Policy Assistant", version="0.1.0", lifespan=lifespan)
     app.state.container = container
     error_handlers.install(app)
 
@@ -35,4 +43,5 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     return app
 
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 app = create_app()

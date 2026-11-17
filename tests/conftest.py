@@ -1,8 +1,12 @@
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import Environment, Settings
+from app.config import EmbedderKind, Environment, Settings
 from app.main import create_app
+
+POLICY_DIR = Path(__file__).resolve().parent.parent / "data" / "policies"
 
 
 @pytest.fixture
@@ -11,10 +15,13 @@ def settings(tmp_path) -> Settings:
         _env_file=None,
         app_env=Environment.DEV,
         data_dir=tmp_path / "data",
+        policy_seed_dir=POLICY_DIR,
+        embedder=EmbedderKind.HASHING,
         jwt_secret="test-secret-that-is-at-least-32-bytes-long",
     )
 
 
 @pytest.fixture
-def client(settings) -> TestClient:
-    return TestClient(create_app(settings))
+def client(settings):
+    with TestClient(create_app(settings)) as client:
+        yield client

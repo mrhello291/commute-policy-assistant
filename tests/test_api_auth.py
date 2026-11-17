@@ -1,6 +1,7 @@
-from app.config import Environment, Settings
-from app.main import create_app
 from fastapi.testclient import TestClient
+
+from app.config import Environment
+from app.main import create_app
 
 
 def _token(client, company="arcadia", role="employee"):
@@ -20,8 +21,6 @@ def test_dev_token_endpoint_rejects_unknown_fields(client):
     assert response.status_code == 422
 
 
-def test_dev_token_endpoint_absent_outside_dev(tmp_path):
-    settings = Settings(_env_file=None, app_env=Environment.PROD, data_dir=tmp_path,
-                        jwt_secret="test-secret-that-is-at-least-32-bytes-long")
-    client = TestClient(create_app(settings))
+def test_dev_token_endpoint_absent_outside_dev(settings):
+    client = TestClient(create_app(settings.model_copy(update={"app_env": Environment.PROD})))
     assert client.post("/dev/token", json={"subject": "x", "company_id": "a"}).status_code == 404
