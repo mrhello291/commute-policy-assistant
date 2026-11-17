@@ -6,7 +6,7 @@ tests spin up isolated instances instead of sharing a module-level global.
 
 from fastapi import Depends, FastAPI
 
-from app.api import routes_dev
+from app.api import error_handlers, routes_dev
 from app.api.deps import get_principal
 from app.auth import Principal
 from app.config import Settings, get_settings
@@ -19,6 +19,7 @@ def create_app(settings: Settings | None = None, container: Container | None = N
 
     app = FastAPI(title="Commute Policy Assistant", version="0.1.0")
     app.state.container = container
+    error_handlers.install(app)
 
     @app.get("/health", tags=["ops"])
     def health() -> dict[str, str]:
