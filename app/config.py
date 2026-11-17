@@ -25,6 +25,7 @@ class EmbedderKind(StrEnum):
 
 class RetrieverKind(StrEnum):
     DENSE = "dense"
+    HYBRID = "hybrid"
 
 
 class LLMProvider(StrEnum):

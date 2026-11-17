@@ -9,7 +9,7 @@ from datetime import timedelta
 
 from app.auth import TokenIssuer, TokenVerifier
 from app.answering.service import QuestionAnsweringService
-from app.config import EmbedderKind, LLMProvider, Settings
+from app.config import EmbedderKind, LLMProvider, RetrieverKind, Settings
 from app.llm.base import LLMClient, UnconfiguredLLM
 from app.llm.gemini_client import GeminiLLMClient
 from app.llm.groq_client import GroqLLMClient
@@ -17,7 +17,8 @@ from app.policies.ingestion import IngestionService
 from app.policies.registry import PolicyRegistry
 from app.policies.seed import PolicySeeder
 from app.retrieval.embeddings import Embedder, HashingEmbedder, MiniLMEmbedder
-from app.retrieval.retriever import DenseRetriever
+from app.retrieval.bm25 import BM25Cache
+from app.retrieval.retriever import DenseRetriever, HybridRetriever, Retriever
 from app.retrieval.vector_store import ChromaPolicyStore
 
 log = logging.getLogger(__name__)
@@ -71,8 +72,15 @@ class Container:
         self.store = ChromaPolicyStore(settings.data_dir / "chroma")
         self.ingestion = IngestionService(self.registry, self.store, self.embedder)
         self.llm = llm or build_llm(settings)
-        self.retriever = DenseRetriever(self.store, self.embedder)
+        self.retriever = self._build_retriever()
         self.answering = QuestionAnsweringService(self.registry, self.retriever, self.llm, settings)
+
+    def _build_retriever(self) -> Retriever:
+        if self.settings.retriever is RetrieverKind.DENSE:
+            return DenseRetriever(self.store, self.embedder)
+        bm25 = BM25Cache(self.store)
+        self.ingestion.on_activate(bm25.invalidate)
+        return HybridRetriever(self.store, self.embedder, bm25)
 
     def startup(self) -> None:
         """Repair anything a previous crash left behind, then load sample policies."""
