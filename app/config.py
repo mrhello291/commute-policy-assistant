@@ -23,6 +23,10 @@ class EmbedderKind(StrEnum):
     HASHING = "hashing"
 
 
+class RetrieverKind(StrEnum):
+    DENSE = "dense"
+
+
 class LLMProvider(StrEnum):
     AUTO = "auto"  # first provider with a key set: Groq, then Gemini
     GROQ = "groq"
@@ -42,6 +46,7 @@ class Settings(BaseSettings):
 
     # "hashing" is only meant for tests; it has no semantic understanding.
     embedder: EmbedderKind = EmbedderKind.MINILM
+    retriever: RetrieverKind = RetrieverKind.DENSE
 
     # LLM provider. Keys come from the environment only.
     llm_provider: LLMProvider = LLMProvider.AUTO

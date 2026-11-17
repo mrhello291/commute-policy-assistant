@@ -57,6 +57,7 @@ class Diagnostics:
     llm: str = ""
     retriever: str = ""
     retrieved: list[str] = field(default_factory=list)  # chunk ids, best first
+    retrieved_sections: list[str] = field(default_factory=list)
     top_similarity: float | None = None
     retrieval_ms: float = 0.0
     total_ms: float = 0.0
@@ -152,6 +153,7 @@ class QuestionAnsweringService:
         # Hard cap, whatever the retriever returned: at most N excerpts can be cited.
         excerpts = excerpts[: self._settings.max_cited_chunks]
         diagnostics.retrieved = [e.chunk.chunk_id for e in excerpts]
+        diagnostics.retrieved_sections = [e.chunk.section_id for e in excerpts]
         diagnostics.top_similarity = round(max(e.similarity for e in excerpts), 3) if excerpts else None
         return excerpts
 

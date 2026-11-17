@@ -56,7 +56,10 @@ def to_response(result: AnswerResult, req_id: str) -> AskResponse:
     return AskResponse(
         status=result.status,
         answer=result.answer,
-        citations=[CitationOut(**vars(c)) for c in result.citations],
+        citations=[
+            CitationOut(document=c.document, version=c.version, section=c.section, title=c.title, excerpt=c.excerpt)
+            for c in result.citations
+        ],
         policy=PolicyOut(document=result.policy.title, version=result.policy.version) if result.policy else None,
         meta=MetaOut(llm_calls=result.diagnostics.llm_calls, latency_ms=result.diagnostics.total_ms),
         request_id=req_id,

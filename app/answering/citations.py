@@ -9,6 +9,7 @@ EXCERPT_CHARS = 280
 
 @dataclass(frozen=True)
 class Citation:
+    company_id: str
     document: str
     version: int
     section: str
@@ -35,6 +36,7 @@ def render_citations(labels: tuple[str, ...], by_label: dict[str, ScoredChunk]) 
         seen_sections.add(chunk.section_id)
         citations.append(
             Citation(
+                company_id=chunk.company_id,
                 document=chunk.doc_title,
                 version=chunk.version,
                 section=chunk.section_id,

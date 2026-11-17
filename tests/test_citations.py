@@ -7,6 +7,7 @@ def test_citations_come_from_metadata_in_cited_order():
     citations = render_citations(("S2", "S1"), by_label)
     assert [c.section for c in citations] == ["4.2", "4.1"]
     assert citations[0] == Citation(
+        company_id="arcadia",
         document="Arcadia Transport Policy",
         version=2,
         section="4.2",
