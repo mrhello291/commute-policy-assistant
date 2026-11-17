@@ -20,3 +20,7 @@ class PermissionDenied(AppError):
 
 class PolicyFormatError(AppError):
     """A policy document could not be parsed. Nothing has been stored."""
+
+
+class VersionConflict(AppError):
+    """A policy version can't be ingested in the registry's current state."""
