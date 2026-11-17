@@ -36,7 +36,7 @@ UNANSWERABLE = (
     "or contact the transport desk."
 )
 OTHER_COMPANY = (
-    "I can only answer from {company}'s transport policy, which is the policy for your account. "
+    "I can only answer from the {company} transport policy, which is the one for your account. "
     "I can't share or compare other companies' policies. If you meant your own policy, please ask "
     "again without the other company's name."
 )
