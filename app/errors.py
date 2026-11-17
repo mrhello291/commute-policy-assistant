@@ -24,3 +24,7 @@ class PolicyFormatError(AppError):
 
 class VersionConflict(AppError):
     """A policy version can't be ingested in the registry's current state."""
+
+
+class IngestionFailed(AppError):
+    """Ingesting a policy failed part-way. The previously live version is unchanged."""
