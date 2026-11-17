@@ -172,7 +172,10 @@ def main() -> None:
     parser.add_argument("--name", help="results file name (default: the retriever name)")
     parser.add_argument("--out", help="explicit output path")
     parser.add_argument(
-        "--pace", type=float, default=2.0, help="seconds to wait after each LLM case (free-tier limits)"
+        "--pace",
+        type=float,
+        default=8.0,
+        help="seconds to wait after each LLM case; Groq's free tier allows about 8K tokens a minute",
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
