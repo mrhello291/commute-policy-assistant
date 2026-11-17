@@ -2,7 +2,7 @@ import pytest
 
 from app.config import RetrieverKind
 from app.container import Container
-from app.retrieval.bm25 import BM25Index, tokenize
+from app.retrieval.bm25 import BM25Index, stem, tokenize
 from app.retrieval.retriever import HybridRetriever, reciprocal_rank_fusion
 from tests.factories import chunk
 
@@ -16,6 +16,13 @@ def test_rrf_rewards_agreement_between_rankings():
 
 def test_tokenize_keeps_numbers_and_drops_stopwords():
     assert tokenize("What is the INR 250 no-show fee?") == ["inr", "250", "no", "show", "fee"]
+
+
+@pytest.mark.parametrize(
+    "a,b", [("saturday", "saturdays"), ("book", "booked"), ("approve", "approves"), ("booking", "book")]
+)
+def test_stemming_matches_simple_word_forms(a, b):
+    assert stem(a) == stem(b)
 
 
 def test_bm25_matches_exact_terms():

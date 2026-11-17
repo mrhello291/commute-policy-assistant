@@ -26,8 +26,21 @@ _STOPWORDS = frozenset(
 )
 
 
+def stem(token: str) -> str:
+    """A deliberately tiny suffix stripper: "Saturdays", "booked" and
+    "approves" should match "Saturday", "book" and "approve". It only has to
+    be consistent between queries and documents, not linguistically right."""
+    for suffix in ("ing", "ed", "es", "s"):
+        if len(token) > 4 and token.endswith(suffix):
+            token = token[: -len(suffix)]
+            break
+    if len(token) > 4 and token.endswith("e"):
+        token = token[:-1]
+    return token
+
+
 def tokenize(text: str) -> list[str]:
-    return [t for t in _TOKEN.findall(text.lower()) if t not in _STOPWORDS]
+    return [stem(t) for t in _TOKEN.findall(text.lower()) if t not in _STOPWORDS]
 
 
 class BM25Index:
