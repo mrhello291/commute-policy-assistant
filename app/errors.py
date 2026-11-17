@@ -28,3 +28,11 @@ class VersionConflict(AppError):
 
 class IngestionFailed(AppError):
     """Ingesting a policy failed part-way. The previously live version is unchanged."""
+
+
+class TenantIsolationError(AppError):
+    """Retrieval returned text from a company other than the caller's.
+
+    This should be impossible. If it ever happens the request fails closed
+    rather than risk showing one company's policy to another's employee.
+    """
