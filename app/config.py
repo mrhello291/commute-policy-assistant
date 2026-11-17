@@ -18,6 +18,11 @@ class Environment(StrEnum):
     PROD = "prod"
 
 
+class EmbedderKind(StrEnum):
+    MINILM = "minilm"
+    HASHING = "hashing"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -27,6 +32,9 @@ class Settings(BaseSettings):
     data_dir: Path = Path("var")
     # Policy documents loaded on first start.
     policy_seed_dir: Path = Path("data/policies")
+
+    # "hashing" is only meant for tests; it has no semantic understanding.
+    embedder: EmbedderKind = EmbedderKind.MINILM
 
     # JWT (the mock identity provider and the API share this secret).
     jwt_secret: str = Field(default="dev-only-secret-change-me-before-deploying", min_length=32)
