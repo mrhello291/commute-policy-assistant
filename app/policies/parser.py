@@ -18,7 +18,7 @@ from app.policies.models import PolicyDocument, Section
 
 MAX_DOCUMENT_BYTES = 200_000
 
-_COMPANY_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{1,40}$")
+_COMPANY_ID = re.compile(r"^[a-z0-9](?:[a-z0-9_-]{0,38}[a-z0-9])$")
 _FRONT_MATTER = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 _NUMBERED = re.compile(r"^(\d+(?:\.\d+)*)\.?\s+(.+)$")
@@ -66,7 +66,7 @@ class MarkdownPolicyParser:
 
         company_id = str(meta["company_id"])
         if not _COMPANY_ID.match(company_id):
-            raise PolicyFormatError("company_id must be lowercase letters, digits, '-' or '_'")
+            raise PolicyFormatError("company_id must be 2-40 lowercase letters, digits, '-' or '_'")
         version = meta["version"]
         if not isinstance(version, int) or isinstance(version, bool) or version < 1:
             raise PolicyFormatError("version must be a positive whole number")

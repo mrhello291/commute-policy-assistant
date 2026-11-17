@@ -28,3 +28,7 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    # Third-party deprecation noise on newer Pythons, not ours to fix.
+    "ignore::DeprecationWarning:chromadb.*",
+]
