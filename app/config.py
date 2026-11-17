@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     llm_provider: LLMProvider = LLMProvider.AUTO
     groq_api_key: SecretStr | None = None
     groq_model: str = "openai/gpt-oss-20b"
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str = "gemini-3.5-flash-lite"
 
     # JWT (the mock identity provider and the API share this secret).
     jwt_secret: str = Field(default="dev-only-secret-change-me-before-deploying", min_length=32)

@@ -12,6 +12,7 @@ dependencies = [
     "pyyaml>=6",
     "chromadb==1.5.9",
     "groq>=1.0",
+    "google-genai>=1.0",
 ]
 
 [project.optional-dependencies]
