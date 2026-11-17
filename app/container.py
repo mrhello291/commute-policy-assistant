@@ -8,7 +8,10 @@ import logging
 from datetime import timedelta
 
 from app.auth import TokenIssuer, TokenVerifier
-from app.config import EmbedderKind, Settings
+from app.config import EmbedderKind, LLMProvider, Settings
+from app.llm.base import LLMClient, UnconfiguredLLM
+from app.llm.gemini_client import GeminiLLMClient
+from app.llm.groq_client import GroqLLMClient
 from app.policies.ingestion import IngestionService
 from app.policies.registry import PolicyRegistry
 from app.policies.seed import PolicySeeder
@@ -24,8 +27,30 @@ def build_embedder(kind: EmbedderKind) -> Embedder:
     return MiniLMEmbedder()
 
 
+def build_llm(settings: Settings) -> LLMClient:
+    """Pick the LLM from settings. With no key at all, the service still runs
+    and tells users the assistant is unavailable instead of crashing."""
+    provider = settings.llm_provider
+    if provider is LLMProvider.AUTO:
+        if settings.groq_api_key:
+            provider = LLMProvider.GROQ
+        elif settings.gemini_api_key:
+            provider = LLMProvider.GEMINI
+        else:
+            provider = LLMProvider.NONE
+
+    if provider is LLMProvider.GROQ and settings.groq_api_key:
+        return GroqLLMClient(settings.groq_api_key.get_secret_value(), settings.groq_model)
+    if provider is LLMProvider.GEMINI and settings.gemini_api_key:
+        return GeminiLLMClient(settings.gemini_api_key.get_secret_value(), settings.gemini_model)
+    if provider is not LLMProvider.NONE:
+        log.warning("LLM provider %s selected but its API key is not set", provider)
+    log.warning("no LLM configured: questions will get a 'temporarily unavailable' reply")
+    return UnconfiguredLLM()
+
+
 class Container:
-    def __init__(self, settings: Settings, embedder: Embedder | None = None):
+    def __init__(self, settings: Settings, embedder: Embedder | None = None, llm: LLMClient | None = None):
         self.settings = settings
         self.token_issuer = TokenIssuer(
             secret=settings.jwt_secret,
@@ -43,6 +68,7 @@ class Container:
         self.registry = PolicyRegistry(settings.data_dir / "registry.db")
         self.store = ChromaPolicyStore(settings.data_dir / "chroma")
         self.ingestion = IngestionService(self.registry, self.store, self.embedder)
+        self.llm = llm or build_llm(settings)
 
     def startup(self) -> None:
         """Repair anything a previous crash left behind, then load sample policies."""

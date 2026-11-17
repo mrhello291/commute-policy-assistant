@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import EmbedderKind, Environment, Settings
+from app.config import EmbedderKind, Environment, LLMProvider, Settings
 from app.main import create_app
 
 POLICY_DIR = Path(__file__).resolve().parent.parent / "data" / "policies"
@@ -17,6 +17,8 @@ def settings(tmp_path) -> Settings:
         data_dir=tmp_path / "data",
         policy_seed_dir=POLICY_DIR,
         embedder=EmbedderKind.HASHING,
+        # Never let a key from the developer's shell reach the test suite.
+        llm_provider=LLMProvider.NONE,
         jwt_secret="test-secret-that-is-at-least-32-bytes-long",
     )
 
