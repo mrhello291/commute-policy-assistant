@@ -8,6 +8,9 @@ services:
         required: false
     volumes:
       - policy_data:/data
+      # So `docker compose run --rm app python -m evaluation.run` leaves its
+      # results on the host.
+      - ./evaluation/results:/srv/evaluation/results
 
 volumes:
   policy_data:
