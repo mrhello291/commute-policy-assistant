@@ -28,6 +28,8 @@
   button { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
   button:disabled { opacity: .55; cursor: progress; }
   .policy { color: var(--muted); font-size: .9rem; }
+  .links { margin-left: auto; font-size: .9rem; }
+  .links a { color: var(--accent); }
   #log { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
   .q { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-radius: 12px 12px 2px 12px; padding: 8px 12px; max-width: 85%; }
   .a { align-self: flex-start; max-width: 100%; width: 100%; }
@@ -50,13 +52,9 @@
 
   <div class="panel">
     <div class="who">
-      <label for="company">Signed in as an employee of</label>
-      <select id="company">
-        <option value="yamuna">Yamuna Software Services</option>
-        <option value="gomti">Gomti Logistics</option>
-        <option value="medhavi">Medhavi Health</option>
-      </select>
+      <span id="who"></span>
       <span class="policy" id="policy"></span>
+      <span class="links"><a href="/login">Token</a> · <a href="/docs">API docs</a> · <a href="#" id="signout">Sign out</a></span>
     </div>
     <form class="ask" id="ask">
       <input type="text" id="question" placeholder="Ask about your transport policy…" maxlength="500" autocomplete="off" required>
@@ -77,7 +75,14 @@ const HINTS = [
   "What is Gomti's no-show penalty?",
 ];
 const $ = (id) => document.getElementById(id);
-let token = null;
+const TOKEN_KEY = "cpa_token";
+const PROFILE_KEY = "cpa_profile";
+
+function load(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
+function forget() { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(PROFILE_KEY); } catch (_) {} }
+function toLogin() { location.replace("/login?next=/"); }
+
+const token = load(TOKEN_KEY);
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -86,18 +91,22 @@ function el(tag, cls, text) {
   return node;
 }
 
-async function signIn() {
-  token = null;
-  $("policy").textContent = "";
-  const company = $("company").value;
-  const res = await fetch("/dev/token", {
-    method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({subject: "demo-employee", company_id: company}),
-  });
-  if (!res.ok) { $("policy").textContent = "Sign-in is only available in dev mode."; return; }
-  token = (await res.json()).access_token;
-  const live = await (await fetch("/v1/policies/active", {headers: {Authorization: `Bearer ${token}`}})).json();
+async function showSession() {
+  let profile = null;
+  try { profile = JSON.parse(load(PROFILE_KEY)); } catch (_) {}
+  if (!token || !profile) { forget(); toLogin(); return; }
+  $("who").textContent = `${profile.name} · ${profile.company_name}`;
+  const res = await fetch("/v1/policies/active", {headers: {Authorization: `Bearer ${token}`}});
+  if (res.status === 401) { forget(); toLogin(); return; }
+  const live = await res.json();
   $("policy").textContent = live.version ? `Live policy: ${live.title}, version ${live.version}` : "No policy loaded yet";
+}
+
+async function signOut(e) {
+  e.preventDefault();
+  try { await fetch("/v1/auth/logout", {method: "POST", headers: {Authorization: `Bearer ${token}`}}); } catch (_) {}
+  forget();
+  location.replace("/login");
 }
 
 async function ask(question) {
@@ -110,6 +119,7 @@ async function ask(question) {
       headers: {"Content-Type": "application/json", Authorization: `Bearer ${token}`},
       body: JSON.stringify({question}),
     });
+    if (res.status === 401) { forget(); toLogin(); return; }
     const body = await res.json();
     renderAnswer(slot, body);
   } catch (err) {
@@ -149,7 +159,7 @@ for (const hint of HINTS) {
   b.onclick = () => { $("question").value = hint; $("ask").requestSubmit(); };
   $("hints").append(b);
 }
-$("company").onchange = signIn;
+$("signout").onclick = signOut;
 $("ask").onsubmit = (e) => {
   e.preventDefault();
   const q = $("question").value.trim();
@@ -157,7 +167,7 @@ $("ask").onsubmit = (e) => {
   $("question").value = "";
   ask(q);
 };
-signIn();
+showSession();
 </script>
 </body>
 </html>
