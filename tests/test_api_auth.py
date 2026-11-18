@@ -2,25 +2,113 @@ from fastapi.testclient import TestClient
 
 from app.config import Environment
 from app.main import create_app
+from tests.helpers import auth, login, token
 
 
-def _token(client, company="yamuna", role="employee"):
-    response = client.post("/dev/token", json={"subject": "emp-7", "company_id": company, "role": role})
+def test_login_returns_token_employee_and_company(client):
+    response = login(client, "yamuna", "YAM-1004")
     assert response.status_code == 200
-    return response.json()["access_token"]
+    body = response.json()
+    assert body["token_type"] == "bearer"
+    assert body["employee"] == {"employee_id": "YAM-1004", "name": "Vikram Shetty", "role": "policy_admin"}
+    assert body["company"] == {"company_id": "yamuna", "company_name": "Yamuna Software Services"}
+    assert 0 < body["expires_in"] <= 480 * 60
+    assert response.headers["Cache-Control"] == "no-store"
 
 
 def test_identity_comes_from_token(client):
-    token = _token(client, "gomti")
-    response = client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
-    assert response.json() == {"subject": "emp-7", "company_id": "gomti", "role": "employee"}
+    me = client.get("/v1/me", headers=auth(client, "gomti")).json()
+    assert (me["subject"], me["company_id"], me["role"]) == ("GOM-2001", "gomti", "employee")
 
 
-def test_dev_token_endpoint_rejects_unknown_fields(client):
-    response = client.post("/dev/token", json={"subject": "x", "company_id": "a", "is_admin": True})
+def test_role_comes_from_the_directory_not_the_request(client):
+    response = client.post(
+        "/v1/auth/login", json={"company_id": "yamuna", "employee_id": "YAM-1001", "role": "policy_admin"}
+    )
     assert response.status_code == 422
+    assert login(client, "yamuna", "YAM-1001").json()["employee"]["role"] == "employee"
 
 
-def test_dev_token_endpoint_absent_outside_dev(settings):
-    client = TestClient(create_app(settings.model_copy(update={"app_env": Environment.PROD})))
-    assert client.post("/dev/token", json={"subject": "x", "company_id": "a"}).status_code == 404
+def test_unknown_company(client):
+    response = login(client, "nosuchco", "YAM-1001")
+    assert response.status_code == 401
+    assert response.json()["status"] == "unknown_company"
+
+
+def test_employee_of_another_company_is_told_only_that_the_id_is_not_found(client):
+    wrong = login(client, "gomti", "YAM-1001")
+    unknown = login(client, "gomti", "GOM-9999")
+    assert wrong.status_code == unknown.status_code == 401
+    assert wrong.json()["status"] == unknown.json()["status"] == "unknown_employee"
+    assert wrong.json()["message"] == unknown.json()["message"]
+    assert "Gomti Logistics" in wrong.json()["message"]
+    assert "YAM-1001" not in wrong.text
+
+
+def test_inactive_employee(client):
+    response = login(client, "gomti", "GOM-2003")
+    assert response.status_code == 403
+    assert response.json()["status"] == "account_inactive"
+
+
+def test_logout_revokes_the_token(client):
+    headers = {"Authorization": f"Bearer {token(client)}"}
+    response = client.post("/v1/auth/logout", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "signed_out"
+    assert client.get("/v1/me", headers=headers).status_code == 401
+    assert client.post("/v1/auth/logout", headers=headers).status_code == 401
+
+
+def test_tokens_from_two_logins_both_work(client):
+    first, second = auth(client), auth(client)
+    assert first != second
+    assert client.get("/v1/me", headers=first).status_code == 200
+    assert client.get("/v1/me", headers=second).status_code == 200
+
+
+def test_session_survives_a_server_restart(settings):
+    with TestClient(create_app(settings)) as before:
+        headers = auth(before)
+    with TestClient(create_app(settings)) as after:
+        assert after.get("/v1/me", headers=headers).status_code == 200
+
+
+def test_login_cookie_does_not_authenticate_api_calls(client):
+    login(client)
+    assert "cpa_session" in client.cookies
+    assert client.get("/v1/me").status_code == 401
+
+
+def test_companies_list_for_the_sign_in_form(client):
+    names = {c["company_id"]: c["company_name"] for c in client.get("/v1/auth/companies").json()}
+    assert names == {
+        "yamuna": "Yamuna Software Services",
+        "gomti": "Gomti Logistics",
+        "medhavi": "Medhavi Health",
+    }
+
+
+def test_sample_accounts_listed_only_in_dev(client, settings):
+    accounts = client.get("/dev/accounts").json()
+    assert {
+        "company_id": "gomti",
+        "employee_id": "GOM-2003",
+        "name": "Arjun Yadav",
+        "role": "employee",
+        "active": False,
+    } in accounts
+    prod = TestClient(create_app(settings.model_copy(update={"app_env": Environment.PROD})))
+    assert prod.get("/dev/accounts").status_code == 404
+    assert prod.post("/dev/token", json={"subject": "x", "company_id": "a"}).status_code == 404
+
+
+def test_store_outage_fails_closed_with_503(client):
+    headers = auth(client)
+    container = client.app.state.container
+    with container.token_store._transaction() as conn:
+        conn.execute("DROP TABLE issued_tokens")
+    response = client.get("/v1/me", headers=headers)
+    assert response.status_code == 503
+    assert response.json()["status"] == "auth_unavailable"
+    assert response.headers["Retry-After"] == "30"

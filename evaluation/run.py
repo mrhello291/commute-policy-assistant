@@ -65,7 +65,11 @@ def to_actual(result: AnswerResult) -> dict:
 
 
 def build_settings(args: argparse.Namespace, data_dir: Path) -> Settings:
-    overrides = {"data_dir": data_dir, "policy_seed_dir": ROOT / "data" / "policies"}
+    overrides = {
+        "data_dir": data_dir,
+        "policy_seed_dir": ROOT / "data" / "policies",
+        "employee_directory": ROOT / "data" / "employees.json",
+    }
     if args.llm:
         overrides["llm_provider"] = LLMProvider(args.llm)
     if args.embedder:

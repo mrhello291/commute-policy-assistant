@@ -20,11 +20,11 @@ def test_forged_token_gives_plain_401(client):
 
 
 def test_validation_error_lists_fields_without_echoing_input(client):
-    response = client.post("/dev/token", json={"subject": "", "company_id": "<script>"})
+    response = client.post("/v1/auth/login", json={"employee_id": "", "company_id": "<script>"})
     assert response.status_code == 422
     body = response.json()
     assert body["status"] == "invalid_request"
-    assert any(p["field"] == "subject" for p in body["problems"])
+    assert any(p["field"] == "employee_id" for p in body["problems"])
     assert "<script>" not in response.text
 
 

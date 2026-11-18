@@ -9,12 +9,10 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
-from app.api import error_handlers, routes_ask, routes_dev, routes_policies
-from app.api.deps import get_principal
-from app.auth import Principal
+from app.api import error_handlers, routes_ask, routes_auth, routes_dev, routes_policies
 from app.config import Settings, get_settings
 from app.container import Container
 
@@ -42,10 +40,7 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/v1/me", tags=["auth"])
-    def whoami(principal: Principal = Depends(get_principal)) -> dict[str, str]:
-        return {"subject": principal.subject, "company_id": principal.company_id, "role": principal.role}
-
+    app.include_router(routes_auth.router)
     app.include_router(routes_ask.router)
     app.include_router(routes_policies.router)
     if settings.is_dev:

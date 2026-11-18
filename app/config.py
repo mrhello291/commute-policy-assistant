@@ -75,7 +75,14 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="dev-only-secret-change-me-before-deploying", min_length=32)
     jwt_issuer: str = "moveinsync-mock-idp"
     jwt_audience: str = "commute-policy-assistant"
-    jwt_ttl_minutes: int = 480
+    jwt_ttl_minutes: int = Field(default=480, ge=1)
+
+    # Sign-in. The directory stands in for each company's HR system.
+    employee_directory: Path = Path("data/employees.json")
+    # Signing in on one more device than this ends the oldest session.
+    max_sessions_per_employee: int = Field(default=5, ge=1, le=50)
+    # Expired and revoked token records are kept this long as an audit trail.
+    token_retention_days: int = Field(default=30, ge=1)
 
     @property
     def is_dev(self) -> bool:

@@ -13,7 +13,17 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app import messages
-from app.errors import AuthError, IngestionFailed, PermissionDenied, PolicyFormatError, VersionConflict
+from app.errors import (
+    AccountInactive,
+    AuthError,
+    AuthUnavailable,
+    IngestionFailed,
+    PermissionDenied,
+    PolicyFormatError,
+    UnknownCompany,
+    UnknownEmployee,
+    VersionConflict,
+)
 
 log = logging.getLogger(__name__)
 
@@ -49,6 +59,29 @@ def install(app: FastAPI) -> None:
             status_code=401,
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    @app.exception_handler(AuthUnavailable)
+    async def on_auth_unavailable(request: Request, exc: AuthUnavailable):
+        log.exception("token store unavailable request_id=%s", request_id(request))
+        return JSONResponse(
+            error_body(request, "auth_unavailable", messages.SIGN_IN_UNAVAILABLE),
+            status_code=503,
+            headers={"Retry-After": "30"},
+        )
+
+    @app.exception_handler(UnknownCompany)
+    async def on_unknown_company(request: Request, exc: UnknownCompany):
+        return JSONResponse(error_body(request, "unknown_company", messages.UNKNOWN_COMPANY), status_code=401)
+
+    @app.exception_handler(UnknownEmployee)
+    async def on_unknown_employee(request: Request, exc: UnknownEmployee):
+        message = messages.UNKNOWN_EMPLOYEE.format(company=str(exc))
+        return JSONResponse(error_body(request, "unknown_employee", message), status_code=401)
+
+    @app.exception_handler(AccountInactive)
+    async def on_account_inactive(request: Request, exc: AccountInactive):
+        message = messages.ACCOUNT_INACTIVE.format(company=str(exc))
+        return JSONResponse(error_body(request, "account_inactive", message), status_code=403)
 
     @app.exception_handler(PermissionDenied)
     async def on_permission_denied(request: Request, exc: PermissionDenied):

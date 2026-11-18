@@ -5,10 +5,13 @@ hands it to whatever needs it. Tests build their own `Container` with fakes.
 """
 
 import logging
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.answering.service import QuestionAnsweringService
 from app.auth import TokenIssuer, TokenVerifier
+from app.auth.directory import EmployeeDirectory
+from app.auth.service import AuthService
+from app.auth.token_store import TokenStore
 from app.config import EmbedderKind, LLMProvider, RetrieverKind, Settings
 from app.llm.base import LLMClient, UnconfiguredLLM
 from app.llm.gemini_client import GeminiLLMClient
@@ -56,16 +59,22 @@ def build_llm(settings: Settings) -> LLMClient:
 class Container:
     def __init__(self, settings: Settings, embedder: Embedder | None = None, llm: LLMClient | None = None):
         self.settings = settings
-        self.token_issuer = TokenIssuer(
-            secret=settings.jwt_secret,
-            issuer=settings.jwt_issuer,
-            audience=settings.jwt_audience,
-            ttl=timedelta(minutes=settings.jwt_ttl_minutes),
-        )
-        self.token_verifier = TokenVerifier(
-            secret=settings.jwt_secret,
-            issuer=settings.jwt_issuer,
-            audience=settings.jwt_audience,
+        self.token_store = TokenStore(settings.data_dir / "auth.db")
+        self.auth = AuthService(
+            directory=EmployeeDirectory.load(settings.employee_directory),
+            store=self.token_store,
+            issuer=TokenIssuer(
+                secret=settings.jwt_secret,
+                issuer=settings.jwt_issuer,
+                audience=settings.jwt_audience,
+                ttl=timedelta(minutes=settings.jwt_ttl_minutes),
+            ),
+            verifier=TokenVerifier(
+                secret=settings.jwt_secret,
+                issuer=settings.jwt_issuer,
+                audience=settings.jwt_audience,
+            ),
+            max_sessions_per_employee=settings.max_sessions_per_employee,
         )
 
         self.embedder = embedder or build_embedder(settings.embedder)
@@ -90,6 +99,10 @@ class Container:
 
     def startup(self) -> None:
         """Repair anything a previous crash left behind, then load sample policies."""
+        cutoff = datetime.now(UTC) - timedelta(days=self.settings.token_retention_days)
+        purged = self.token_store.purge(expired_before=int(cutoff.timestamp()))
+        if purged:
+            log.info("removed %d token records older than %d days", purged, self.settings.token_retention_days)
         self.ingestion.reconcile()
         reports = PolicySeeder(self.ingestion).seed(self.settings.policy_seed_dir)
         live = self.registry.active_companies()

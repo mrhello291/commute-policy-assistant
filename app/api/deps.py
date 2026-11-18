@@ -1,8 +1,9 @@
 """FastAPI dependencies shared by the routes.
 
-`get_principal` is the only way a route learns who is calling. It reads the
-bearer token and nothing else: there is deliberately no header, query
-parameter or body field that can name a company.
+`get_session` is the only way a route learns who is calling. It reads the
+bearer token from the Authorization header and nothing else: there is
+deliberately no header, query parameter, body field or cookie that can name
+a company or stand in for the token.
 """
 
 from collections.abc import Callable
@@ -11,6 +12,7 @@ from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth import Principal, Role
+from app.auth.service import Session
 from app.container import Container
 from app.errors import AuthError, PermissionDenied
 
@@ -21,13 +23,17 @@ def get_container(request: Request) -> Container:
     return request.app.state.container
 
 
-def get_principal(
+def get_session(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     container: Container = Depends(get_container),
-) -> Principal:
+) -> Session:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise AuthError("missing bearer token")
-    return container.token_verifier.verify(credentials.credentials).principal
+    return container.auth.authenticate(credentials.credentials)
+
+
+def get_principal(session: Session = Depends(get_session)) -> Principal:
+    return session.principal
 
 
 def require_role(role: Role) -> Callable[..., Principal]:

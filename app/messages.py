@@ -5,6 +5,16 @@ happened and what to do next, in plain words, with no internal detail.
 """
 
 SESSION_INVALID = "Your session is not valid or has expired. Please sign in again."
+SIGN_IN_UNAVAILABLE = "Sign-in can't be checked right now. Please try again in a minute."
+UNKNOWN_COMPANY = "We don't recognise that company. Please choose your company from the list and try again."
+UNKNOWN_EMPLOYEE = (
+    "No employee with that ID works at {company}. Check your employee ID and try again, or contact your transport desk."
+)
+ACCOUNT_INACTIVE = (
+    "Your {company} employee account is no longer active, so you can't sign in. "
+    "If you think this is a mistake, contact your HR or transport desk."
+)
+SIGNED_OUT = "You have been signed out."
 NOT_ALLOWED = "You don't have permission to do that."
 BAD_REQUEST = "Something in that request wasn't right. Please check it and try again."
 UNEXPECTED = "Something went wrong on our side. Please try again in a minute."

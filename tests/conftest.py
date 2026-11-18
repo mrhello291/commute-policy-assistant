@@ -7,7 +7,8 @@ from app.config import EmbedderKind, Environment, LLMProvider, Settings
 from app.container import Container
 from app.main import create_app
 
-POLICY_DIR = Path(__file__).resolve().parent.parent / "data" / "policies"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+POLICY_DIR = DATA_DIR / "policies"
 
 
 def make_settings(data_dir: Path) -> Settings:
@@ -17,6 +18,7 @@ def make_settings(data_dir: Path) -> Settings:
         app_env=Environment.DEV,
         data_dir=data_dir,
         policy_seed_dir=POLICY_DIR,
+        employee_directory=DATA_DIR / "employees.json",
         embedder=EmbedderKind.HASHING,
         # Never let a key from the developer's shell reach the test suite.
         llm_provider=LLMProvider.NONE,

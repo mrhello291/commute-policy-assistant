@@ -137,5 +137,6 @@ class AuthService:
         self._store.revoke(session.jti, "logout", int(self._clock()))
         log.info("logout employee=%s jti=%s", session.principal.subject, session.jti[:8])
 
-    def companies(self) -> list[Company]:
-        return self._directory.companies()
+    @property
+    def directory(self) -> EmployeeDirectory:
+        return self._directory
