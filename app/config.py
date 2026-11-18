@@ -9,8 +9,11 @@ from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Only good enough for a laptop. Starting in prod with it is refused.
+DEV_JWT_SECRET = "dev-only-secret-change-me-before-deploying"
 
 
 class Environment(StrEnum):
@@ -72,7 +75,7 @@ class Settings(BaseSettings):
     evidence_min_similarity: float = 0.25
 
     # JWT (the mock identity provider and the API share this secret).
-    jwt_secret: str = Field(default="dev-only-secret-change-me-before-deploying", min_length=32)
+    jwt_secret: str = Field(default=DEV_JWT_SECRET, min_length=32)
     jwt_issuer: str = "moveinsync-mock-idp"
     jwt_audience: str = "commute-policy-assistant"
     jwt_ttl_minutes: int = Field(default=480, ge=1)
@@ -83,6 +86,14 @@ class Settings(BaseSettings):
     max_sessions_per_employee: int = Field(default=5, ge=1, le=50)
     # Expired and revoked token records are kept this long as an audit trail.
     token_retention_days: int = Field(default=30, ge=1)
+
+    @model_validator(mode="after")
+    def _no_dev_secret_in_prod(self) -> "Settings":
+        # Anyone who has read this repository knows the dev secret and could
+        # sign a token for any company.
+        if self.app_env is Environment.PROD and self.jwt_secret == DEV_JWT_SECRET:
+            raise ValueError("JWT_SECRET must be set to your own value when APP_ENV=prod")
+        return self
 
     @property
     def is_dev(self) -> bool:
