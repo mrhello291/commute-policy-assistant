@@ -1,6 +1,7 @@
 """Sign-in and per-request authentication.
 
     login(company, employee id)
+      -> too many failed sign-ins from this client?  yes: TooManyAttempts
       -> company known?                 no: UnknownCompany
       -> employee works there?          no: UnknownEmployee
       -> employee still active?         no: AccountInactive
@@ -23,9 +24,10 @@ from datetime import datetime
 
 from app.auth.directory import Company, Employee, EmployeeDirectory, normalise_company_id, normalise_employee_id
 from app.auth.principal import Principal
+from app.auth.rate_limit import LoginRateLimiter
 from app.auth.token_store import TokenRecord, TokenStore
 from app.auth.tokens import TokenIssuer, TokenVerifier
-from app.errors import AccountInactive, AuthError, UnknownCompany, UnknownEmployee
+from app.errors import AccountInactive, AuthError, LoginRefused, UnknownCompany, UnknownEmployee
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +60,7 @@ class AuthService:
         issuer: TokenIssuer,
         verifier: TokenVerifier,
         max_sessions_per_employee: int,
+        rate_limiter: LoginRateLimiter | None = None,
         clock: Callable[[], float] = time.time,
     ):
         self._directory = directory
@@ -65,21 +68,21 @@ class AuthService:
         self._issuer = issuer
         self._verifier = verifier
         self._max_sessions = max_sessions_per_employee
+        self._rate_limiter = rate_limiter
         self._clock = clock
 
     def login(
         self, company_id: str, employee_id: str, client_ip: str | None = None, user_agent: str | None = None
     ) -> LoginResult:
-        company = self._directory.company(normalise_company_id(company_id))
-        if company is None:
-            raise UnknownCompany("unknown company")
-        # One message whether the ID is unknown or belongs to another
-        # company, so sign-in can't be used to find out who works where.
-        employee = self._directory.member(company.company_id, normalise_employee_id(employee_id))
-        if employee is None:
-            raise UnknownEmployee(company.company_name)
-        if not employee.active:
-            raise AccountInactive(company.company_name)
+        client = client_ip or "unknown"
+        if self._rate_limiter:
+            self._rate_limiter.check(client)
+        try:
+            company, employee = self._find_employee(company_id, employee_id)
+        except LoginRefused:
+            if self._rate_limiter:
+                self._rate_limiter.record_failure(client)
+            raise
 
         signed = self._issuer.issue(employee.employee_id, company.company_id, employee.role)
         revoked = self._store.record(
@@ -105,6 +108,19 @@ class AuthService:
             len(revoked),
         )
         return LoginResult(signed.token, signed.jti, signed.expires_at, employee, company)
+
+    def _find_employee(self, company_id: str, employee_id: str) -> tuple[Company, Employee]:
+        company = self._directory.company(normalise_company_id(company_id))
+        if company is None:
+            raise UnknownCompany("unknown company")
+        # One message whether the ID is unknown or belongs to another
+        # company, so sign-in can't be used to find out who works where.
+        employee = self._directory.member(company.company_id, normalise_employee_id(employee_id))
+        if employee is None:
+            raise UnknownEmployee(company.company_name)
+        if not employee.active:
+            raise AccountInactive(company.company_name)
+        return company, employee
 
     def authenticate(self, token: str) -> Session:
         """The session behind `token`, or `AuthError`. `AuthUnavailable` if the store is down."""

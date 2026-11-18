@@ -30,6 +30,14 @@ class AccountInactive(LoginRefused):
     """The employee exists but no longer works there (or is suspended)."""
 
 
+class TooManyAttempts(AppError):
+    """Too many failed sign-ins from one client. `retry_after_s` says how long to wait."""
+
+    def __init__(self, retry_after_s: int):
+        super().__init__(f"too many failed sign-ins, retry after {retry_after_s}s")
+        self.retry_after_s = retry_after_s
+
+
 class AuthUnavailable(AppError):
     """Sign-in state could not be checked (the token store is unreachable).
 

@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from app.answering.service import QuestionAnsweringService
 from app.auth import TokenIssuer, TokenVerifier
 from app.auth.directory import EmployeeDirectory
+from app.auth.rate_limit import LoginRateLimiter
 from app.auth.service import AuthService
 from app.auth.token_store import TokenStore
 from app.config import EmbedderKind, LLMProvider, RetrieverKind, Settings
@@ -75,6 +76,7 @@ class Container:
                 audience=settings.jwt_audience,
             ),
             max_sessions_per_employee=settings.max_sessions_per_employee,
+            rate_limiter=LoginRateLimiter(settings.login_max_failures, settings.login_failure_window_s),
         )
 
         self.embedder = embedder or build_embedder(settings.embedder)

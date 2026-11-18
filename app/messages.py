@@ -15,6 +15,7 @@ ACCOUNT_INACTIVE = (
     "If you think this is a mistake, contact your HR or transport desk."
 )
 SIGNED_OUT = "You have been signed out."
+TOO_MANY_ATTEMPTS = "Too many unsuccessful sign-in attempts. Please wait {wait} and try again."
 NOT_ALLOWED = "You don't have permission to do that."
 BAD_REQUEST = "Something in that request wasn't right. Please check it and try again."
 UNEXPECTED = "Something went wrong on our side. Please try again in a minute."

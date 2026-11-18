@@ -6,6 +6,7 @@ client so a support conversation can find the matching log line.
 """
 
 import logging
+import math
 import uuid
 
 from fastapi import FastAPI, Request
@@ -20,6 +21,7 @@ from app.errors import (
     IngestionFailed,
     PermissionDenied,
     PolicyFormatError,
+    TooManyAttempts,
     UnknownCompany,
     UnknownEmployee,
     VersionConflict,
@@ -82,6 +84,17 @@ def install(app: FastAPI) -> None:
     async def on_account_inactive(request: Request, exc: AccountInactive):
         message = messages.ACCOUNT_INACTIVE.format(company=str(exc))
         return JSONResponse(error_body(request, "account_inactive", message), status_code=403)
+
+    @app.exception_handler(TooManyAttempts)
+    async def on_too_many_attempts(request: Request, exc: TooManyAttempts):
+        minutes = math.ceil(exc.retry_after_s / 60)
+        wait = "a minute" if minutes <= 1 else f"{minutes} minutes"
+        log.warning("login rate limited request_id=%s", request_id(request))
+        return JSONResponse(
+            error_body(request, "too_many_attempts", messages.TOO_MANY_ATTEMPTS.format(wait=wait)),
+            status_code=429,
+            headers={"Retry-After": str(exc.retry_after_s)},
+        )
 
     @app.exception_handler(PermissionDenied)
     async def on_permission_denied(request: Request, exc: PermissionDenied):

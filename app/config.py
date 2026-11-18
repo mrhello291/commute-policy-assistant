@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     employee_directory: Path = Path("data/employees.json")
     # Signing in on one more device than this ends the oldest session.
     max_sessions_per_employee: int = Field(default=5, ge=1, le=50)
+    # Failed sign-ins allowed per client in the window before it must wait.
+    login_max_failures: int = Field(default=10, ge=1)
+    login_failure_window_s: int = Field(default=300, ge=1)
     # Expired and revoked token records are kept this long as an audit trail.
     token_retention_days: int = Field(default=30, ge=1)
 
