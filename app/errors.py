@@ -14,6 +14,13 @@ class AuthError(AppError):
     """The caller could not be authenticated (missing, expired or forged token)."""
 
 
+class AuthUnavailable(AppError):
+    """Sign-in state could not be checked (the token store is unreachable).
+
+    Requests fail closed: the caller is told to try again, never let through.
+    """
+
+
 class PermissionDenied(AppError):
     """The caller is authenticated but not allowed to do this."""
 
