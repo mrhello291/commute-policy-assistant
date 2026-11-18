@@ -1,10 +1,11 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
 
 from app.auth import Role
-from app.auth.directory import DirectoryError, EmployeeDirectory
+from app.auth.directory import DirectoryError, EmployeeDirectory, ReloadingDirectory
 
 DIRECTORY_FILE = Path(__file__).resolve().parent.parent / "data" / "employees.json"
 
@@ -69,3 +70,42 @@ def test_missing_or_broken_file_is_refused(tmp_path):
 def test_empty_directory_is_refused():
     with pytest.raises(DirectoryError):
         EmployeeDirectory.from_dict(json.loads('{"companies": []}'))
+
+
+def _write(path, raw, bump=0):
+    path.write_text(json.dumps(raw))
+    # Make sure the change is visible even on filesystems with coarse timestamps.
+    st = path.stat()
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + bump))
+
+
+def test_reloading_directory_picks_up_edits(tmp_path):
+    path = tmp_path / "employees.json"
+    raw = _raw({"employee_id": "E-1", "name": "A"})
+    _write(path, raw)
+    directory = ReloadingDirectory(path)
+    assert directory.member("acme", "E-1").active
+
+    raw["companies"][0]["employees"][0]["active"] = False
+    raw["companies"][0]["employees"].append({"employee_id": "E-2", "name": "B"})
+    _write(path, raw, bump=10**9)
+    assert directory.member("acme", "E-1").active is False
+    assert directory.member("acme", "E-2").name == "B"
+
+
+def test_broken_edit_keeps_the_last_good_directory(tmp_path):
+    path = tmp_path / "employees.json"
+    _write(path, _raw({"employee_id": "E-1", "name": "A"}))
+    directory = ReloadingDirectory(path)
+    path.write_text("{half saved")
+    os.utime(path, ns=(0, path.stat().st_mtime_ns + 10**9))
+    assert directory.member("acme", "E-1").name == "A"
+    path.unlink()
+    assert directory.member("acme", "E-1").name == "A"
+
+
+def test_broken_directory_still_fails_at_startup(tmp_path):
+    path = tmp_path / "employees.json"
+    path.write_text("{half saved")
+    with pytest.raises(DirectoryError):
+        ReloadingDirectory(path)

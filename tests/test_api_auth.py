@@ -1,3 +1,6 @@
+import json
+import os
+
 from fastapi.testclient import TestClient
 
 from app.config import Environment
@@ -112,3 +115,20 @@ def test_store_outage_fails_closed_with_503(client):
     assert response.status_code == 503
     assert response.json()["status"] == "auth_unavailable"
     assert response.headers["Retry-After"] == "30"
+
+
+def test_directory_edit_takes_effect_without_a_restart(settings, tmp_path):
+    directory = tmp_path / "employees.json"
+    raw = json.loads(settings.employee_directory.read_text())
+    directory.write_text(json.dumps(raw))
+    with TestClient(create_app(settings.model_copy(update={"employee_directory": directory}))) as client:
+        headers = {"Authorization": f"Bearer {login(client, 'yamuna', 'YAM-1002').json()['access_token']}"}
+        assert client.get("/v1/me", headers=headers).status_code == 200
+
+        # HR marks the employee as having left while they are signed in.
+        raw["companies"][0]["employees"][1]["active"] = False
+        directory.write_text(json.dumps(raw))
+        os.utime(directory, ns=(0, directory.stat().st_mtime_ns + 10**9))
+
+        assert client.get("/v1/me", headers=headers).status_code == 401
+        assert login(client, "yamuna", "YAM-1002").json()["status"] == "account_inactive"

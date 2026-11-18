@@ -2,18 +2,24 @@
 
 Stands in for each client company's HR system: it says which employees exist,
 which company each one works for, their role, and whether they still work
-there. It is loaded once from a JSON file and never written by the app.
+there. It is read from a JSON file and never written by the app.
 
 A broken directory stops the service at startup rather than letting it run
 with no one able to sign in, or with two companies claiming the same ID.
+Edits made while it runs are picked up on the next request (`ReloadingDirectory`);
+a broken edit is ignored and the last good version stays in use.
 """
 
 import json
+import logging
 import re
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
 from app.auth.principal import Role
+
+log = logging.getLogger(__name__)
 
 # Employee IDs are matched case-insensitively and stored upper-case.
 EMPLOYEE_ID_PATTERN = re.compile(r"^[A-Z0-9][A-Z0-9-]{0,31}$")
@@ -118,3 +124,58 @@ class EmployeeDirectory:
         """The employee with this ID, but only if they belong to `company_id`."""
         person = self._employees.get(employee_id)
         return person if person and person.company_id == company_id else None
+
+
+class ReloadingDirectory:
+    """The directory file, re-read whenever it changes on disk.
+
+    Each lookup costs one `stat` call. When the file's modification time,
+    size or inode changes, it is loaded and validated again. If the new
+    version is broken, the error is logged once and the previous version
+    keeps serving, so a half-saved edit can't lock everyone out.
+    """
+
+    def __init__(self, path: Path):
+        self._path = path
+        self._lock = threading.Lock()
+        self._signature = self._stat()
+        self._current = EmployeeDirectory.load(path)  # a broken file fails startup
+
+    def current(self) -> EmployeeDirectory:
+        signature = self._stat()
+        if signature is None or signature == self._signature:
+            return self._current
+        with self._lock:
+            if signature != self._signature:
+                self._signature = signature
+                try:
+                    self._current = EmployeeDirectory.load(self._path)
+                    log.info("employee directory reloaded from %s", self._path)
+                except DirectoryError:
+                    log.exception("employee directory edit rejected, still using the previous version")
+        return self._current
+
+    def _stat(self) -> tuple[int, int, int] | None:
+        try:
+            st = self._path.stat()
+        except OSError:
+            # Missing for a moment (an editor replacing the file): keep serving.
+            return None
+        return (st.st_mtime_ns, st.st_size, st.st_ino)
+
+    # The same lookups as EmployeeDirectory, always on the current version.
+
+    def company(self, company_id: str) -> Company | None:
+        return self.current().company(company_id)
+
+    def companies(self) -> list[Company]:
+        return self.current().companies()
+
+    def employee(self, employee_id: str) -> Employee | None:
+        return self.current().employee(employee_id)
+
+    def employees(self) -> list[Employee]:
+        return self.current().employees()
+
+    def member(self, company_id: str, employee_id: str) -> Employee | None:
+        return self.current().member(company_id, employee_id)

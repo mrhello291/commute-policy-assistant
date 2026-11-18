@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.answering.service import QuestionAnsweringService
 from app.auth import TokenIssuer, TokenVerifier
-from app.auth.directory import EmployeeDirectory
+from app.auth.directory import ReloadingDirectory
 from app.auth.rate_limit import LoginRateLimiter
 from app.auth.service import AuthService
 from app.auth.token_store import TokenStore
@@ -62,7 +62,7 @@ class Container:
         self.settings = settings
         self.token_store = TokenStore(settings.data_dir / "auth.db")
         self.auth = AuthService(
-            directory=EmployeeDirectory.load(settings.employee_directory),
+            directory=ReloadingDirectory(settings.employee_directory),
             store=self.token_store,
             issuer=TokenIssuer(
                 secret=settings.jwt_secret,

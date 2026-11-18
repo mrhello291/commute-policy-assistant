@@ -22,7 +22,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
-from app.auth.directory import Company, Employee, EmployeeDirectory, normalise_company_id, normalise_employee_id
+from app.auth.directory import (
+    Company,
+    Employee,
+    EmployeeDirectory,
+    ReloadingDirectory,
+    normalise_company_id,
+    normalise_employee_id,
+)
 from app.auth.principal import Principal
 from app.auth.rate_limit import LoginRateLimiter
 from app.auth.token_store import TokenRecord, TokenStore
@@ -55,7 +62,7 @@ class LoginResult:
 class AuthService:
     def __init__(
         self,
-        directory: EmployeeDirectory,
+        directory: EmployeeDirectory | ReloadingDirectory,
         store: TokenStore,
         issuer: TokenIssuer,
         verifier: TokenVerifier,
@@ -154,5 +161,5 @@ class AuthService:
         log.info("logout employee=%s jti=%s", session.principal.subject, session.jti[:8])
 
     @property
-    def directory(self) -> EmployeeDirectory:
+    def directory(self) -> EmployeeDirectory | ReloadingDirectory:
         return self._directory
