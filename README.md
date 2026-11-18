@@ -133,6 +133,58 @@ parse + validate whole doc ─► registry: staging ─► embed + write chunks 
 
 ---
 
+## The sample policies: what they are based on
+
+The statement asks for three short policies with overlapping terms and deliberately contradictory
+rules. Before writing them I listed what the statement requires of them, then looked at what real
+Indian corporate transport policies contain. The full write-up, with the requirement checklist, every
+source and what each contributed, is in [docs/POLICY_DATA.md](docs/POLICY_DATA.md). The short version:
+
+**What the statement requires.** Eligibility by grade, shift or distance. Night-shift rules with a
+women's escort starting at different hours per company. Cut-offs, cost caps, ad-hoc approvals,
+weekend and holiday pickups, guest travel and no-show penalties. A new version that replaces the old
+one. Questions the policy cannot answer. A document carrying text aimed at the assistant. Numbered
+sections to cite.
+
+**What the research looked at.**
+
+| Source | What it gave the policies |
+|---|---|
+| Qualcomm India Employee Transportation Policy (a real, publicly hosted corporate document) | The clause structure: eligibility, registration with a minimum period, cut-offs by request type, the no-show rule, the escort on first pickup and last drop, a 15-day temporary address change, "no families or visitors", incident escalation, a revision history |
+| greytHR and cab-rental-hub policy templates | Definitions, exceptions and non-compliance sections, a 3 km to 35 km distance band, a 5-minute no-show grace period, women on night shifts using company transport |
+| WTI Cabs guidance on enforceable safety SOPs | Night windows stated as exact hours, escort rules that say what happens when no escort is available, a version and date on every change |
+| MoveInSync's no-show enforcement guide | Why no-show rules should differ in kind: a warning ladder, a money deduction, removal from the roster, each with its own counting window and exemptions |
+| Nishith Desai and Legal60 summaries of state night-shift rules | The night window is not one national number. It starts between 7 PM and 10 PM depending on the state, which is why three companies can sensibly use 8:00 PM, 9:00 PM and 10:00 PM. Written consent, GPS-tracked vehicles and an opt-out are common conditions |
+
+**What that changed in the documents.** Each policy follows the same real-world spine (scope and
+definitions, eligibility, booking, night travel, weekends, ad-hoc and airport trips, cost, no-shows,
+guests, safety, review, contact), so retrieval is tested against realistic text and not three bare
+lists. The companies differ in *kind* as well as number: eligibility by grade, by distance or by shift;
+no-shows as a warning ladder, a money deduction or a roster removal; weekends as an approval, a
+reimbursement or an automatic roster. Gaps are placed where a model is tempted to borrow from a
+neighbour (Corvane has no airport or guest rule, Bluepeak has no safe-arrival check). Section numbers
+are the citations and stay fixed per topic across versions.
+
+**Caveats.** All values are invented, and none are copied from any company. The legal sources were
+secondary summaries that disagree in places, so the sample policies are not legal advice and are not
+claimed to comply with any state's rules. The statement describes 10 to 30 page documents; ours are
+short, as the requirements say, and keep the clause structure but not the annexures or maps.
+
+The contradictions at a glance (full table in the doc):
+
+| Topic | Arcadia (v2) | Bluepeak | Corvane |
+|---|---|---|---|
+| Eligibility | Grades L1–L5, > 5 km | Every grade, > 3 km | Rostered shift staff |
+| Cut-off | 4 hours | 2 hours | 6:00 PM the day before |
+| Escort for women | After 7:30 PM (8:00 PM in v1) | After 10:00 PM | After 9:00 PM |
+| Weekends | L2 manager approval | Not provided, INR 500 reimbursement | Rostered automatically |
+| Airport trips | Reporting manager, INR 1,500 | Transport Head, INR 2,000 | *Not covered* |
+| Standard cap | INR 900 (800 in v1) | INR 1,000 | INR 600 |
+| No-show | 2 → warning, 3 → 7-day suspension | INR 250 each after the first | 3 → off roster for a month |
+| Guests | Not allowed | HR approval, host travels | *Not covered* |
+
+---
+
 ## Design decisions
 
 ### 1. Isolation is structural, not a prompt instruction
