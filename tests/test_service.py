@@ -178,6 +178,23 @@ def test_no_retry_when_the_deadline_is_too_close(container):
     assert result.status is AnswerStatus.TRY_AGAIN and len(llm.calls) == 1
 
 
+def test_a_hanging_llm_call_is_cut_off_at_the_deadline(container):
+    """The SDK timeout is per network read, not wall-clock; the service must enforce its own."""
+
+    def hangs(system, user):
+        time.sleep(2.0)
+        return reply()
+
+    llm = ScriptedLLM([hangs, reply()])
+    service = make_service(container, llm, request_deadline_s=0.6, llm_timeout_s=5.0, min_llm_window_s=0.3)
+    started = time.perf_counter()
+    result = ask(service)
+    elapsed = time.perf_counter() - started
+    assert result.status is AnswerStatus.TRY_AGAIN
+    assert elapsed < 0.9
+    assert len(llm.calls) == 1
+
+
 def test_llm_timeout_never_exceeds_remaining_deadline(container):
     llm = ScriptedLLM([reply()])
     ask(make_service(container, llm, request_deadline_s=1.0, llm_timeout_s=5.0, min_llm_window_s=0.1))

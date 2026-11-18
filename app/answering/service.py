@@ -30,7 +30,7 @@ from app.answering.validator import AnswerRejected, AnswerValidator, ValidatedAn
 from app.auth import Principal
 from app.config import Settings
 from app.errors import TenantIsolationError
-from app.llm.base import LLMClient, LLMError, LLMNotConfigured, LLMRateLimited
+from app.llm.base import LLMClient, LLMError, LLMNotConfigured, LLMRateLimited, LLMTimeout
 from app.llm.budget import CallBudget, Deadline
 from app.policies.registry import PolicyRegistry, PolicyVersion
 from app.retrieval.models import ScoredChunk
@@ -90,6 +90,7 @@ class QuestionAnsweringService:
         self._prompts = prompt_builder or PromptBuilder()
         self._validator = validator or AnswerValidator()
         self._retrieval_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="retrieval")
+        self._llm_pool = ThreadPoolExecutor(max_workers=16, thread_name_prefix="llm")
 
     def ask(self, principal: Principal, question: str) -> AnswerResult:
         started = time.perf_counter()
@@ -180,7 +181,7 @@ class QuestionAnsweringService:
             diagnostics.llm_calls = budget.used
             timeout = min(self._settings.llm_timeout_s, deadline.remaining())
             try:
-                raw = self._llm.complete_json(prompt.system, user_message, schema, timeout)
+                raw = self._call_llm(prompt.system, user_message, schema, timeout)
                 validated = self._validator.validate(raw, set(prompt.labels), prompt.token, other_companies)
                 return self._success(validated, prompt, policy, diagnostics)
             except LLMNotConfigured:
@@ -211,6 +212,22 @@ class QuestionAnsweringService:
                 AnswerStatus.UNANSWERABLE, messages.UNANSWERABLE, policy=policy, diagnostics=diagnostics
             )
         return self._try_again(policy, diagnostics)
+
+    def _call_llm(self, system: str, user: str, schema: dict, timeout: float) -> str:
+        """Call the model, but never wait longer than `timeout` seconds of wall-clock time.
+
+        The SDKs' own timeouts are per network operation (connect, gap between
+        reads), so a slow reply can run well past them; one benchmark request
+        took 3.2 s against a 2.2 s setting. Waiting on a future enforces a real
+        limit. A call that overruns is abandoned: its thread finishes in the
+        background and the reply is discarded.
+        """
+        future = self._llm_pool.submit(self._llm.complete_json, system, user, schema, timeout)
+        try:
+            return future.result(timeout=timeout)
+        except FutureTimeout as exc:
+            future.cancel()
+            raise LLMTimeout(f"no reply within {timeout:.1f}s") from exc
 
     def _success(
         self, validated: ValidatedAnswer, prompt: Prompt, policy: PolicyVersion, diagnostics: Diagnostics
