@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Commute Policy Assistant</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5b6475; --border: #dde1e8;
+    --accent: #2457c5; --accent-text: #ffffff; --ok: #1f7a4d; --bad: #b42318; --chip: #eef1f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1b2029; --text: #e6e9ef; --muted: #9aa3b2; --border: #2c3340;
+      --accent: #6d97ff; --accent-text: #0b0e14; --ok: #5cc98f; --bad: #ff7b72; --chip: #252b36;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 40px 16px; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  h2 { font-size: 1rem; margin: 0 0 10px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  label { display: block; color: var(--muted); font-size: .88rem; margin: 10px 0 4px; }
+  select, input, button { font: inherit; color: inherit; }
+  select, input { width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; }
+  button, .button { display: inline-block; background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; }
+  button.secondary, .button.secondary { background: var(--chip); color: var(--text); }
+  button:disabled { opacity: .55; cursor: progress; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  .error { color: var(--bad); margin-top: 10px; min-height: 1.2em; }
+  .token { display: flex; gap: 6px; }
+  .token input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; }
+  .muted { color: var(--muted); font-size: .88rem; }
+  .ok { color: var(--ok); }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  td, th { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--border); }
+  tr.pick { cursor: pointer; }
+  tr.pick:hover { background: var(--chip); }
+  tr.inactive { color: var(--muted); text-decoration: line-through; }
+  code { background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Commute Policy Assistant</h1>
+  <p class="sub">Sign in with your company and employee ID.</p>
+
+  <form class="panel" id="form" hidden>
+    <label for="company">Company</label>
+    <select id="company" required></select>
+    <label for="employee">Employee ID</label>
+    <input id="employee" placeholder="e.g. YAM-1001" maxlength="32" autocomplete="username" required>
+    <div class="row"><button type="submit" id="submit">Sign in</button></div>
+    <div class="error" id="error" role="alert"></div>
+  </form>
+
+  <section class="panel" id="session" hidden>
+    <h2>Signed in</h2>
+    <div id="who"></div>
+    <div class="muted" id="expiry"></div>
+    <label for="token">Your access token</label>
+    <div class="token">
+      <input type="password" id="token" readonly aria-label="Access token">
+      <button type="button" class="secondary" id="reveal">Show</button>
+      <button type="button" class="secondary" id="copy">Copy</button>
+    </div>
+    <p class="muted">Use it as <code>Authorization: Bearer &lt;token&gt;</code>. In the API docs, press
+      <b>Authorize</b> and paste it.</p>
+    <div class="row">
+      <a class="button" id="continue" href="/">Open the assistant</a>
+      <a class="button secondary" href="/docs">API docs</a>
+      <button type="button" class="secondary" id="signout">Sign out</button>
+    </div>
+  </section>
+
+  <section class="panel" id="samples" hidden>
+    <h2>Sample accounts</h2>
+    <p class="muted">Demo only. Click one to fill the form. The crossed-out account has left the company.</p>
+    <table><thead><tr><th>ID</th><th>Name</th><th>Company</th><th>Role</th></tr></thead><tbody id="sample-rows"></tbody></table>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const TOKEN_KEY = "cpa_token";
+const PROFILE_KEY = "cpa_profile";
+const RETURN_PAGES = ["/", "/docs", "/redoc"];
+const next = new URLSearchParams(location.search).get("next");
+let companyNames = {};
+
+function store(key, value) { try { value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value); } catch (_) {} }
+function load(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
+
+function el(tag, text) { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; return n; }
+
+async function loadCompanies() {
+  const res = await fetch("/v1/auth/companies");
+  const companies = res.ok ? await res.json() : [];
+  for (const c of companies) {
+    companyNames[c.company_id] = c.company_name;
+    const opt = el("option", c.company_name);
+    opt.value = c.company_id;
+    $("company").append(opt);
+  }
+}
+
+async function loadSamples() {
+  const res = await fetch("/dev/accounts");
+  if (!res.ok) return;  // only offered in dev mode
+  for (const a of await res.json()) {
+    const tr = el("tr");
+    tr.className = a.active ? "pick" : "pick inactive";
+    for (const v of [a.employee_id, a.name, companyNames[a.company_id] || a.company_id, a.role.replace("_", " ")]) tr.append(el("td", v));
+    tr.onclick = () => { $("company").value = a.company_id; $("employee").value = a.employee_id; $("employee").focus(); };
+    $("sample-rows").append(tr);
+  }
+  $("samples").hidden = false;
+}
+
+function showSession(token, profile) {
+  $("form").hidden = true;
+  $("samples").hidden = true;
+  $("session").hidden = false;
+  $("token").value = token;
+  $("token").type = "password";
+  $("reveal").textContent = "Show";
+  $("who").textContent = `${profile.name} (${profile.employee_id}) · ${profile.company_name} · ${profile.role.replace("_", " ")}`;
+  $("expiry").textContent = `Session ends ${new Date(profile.expires_at).toLocaleString()}`;
+  if (next && RETURN_PAGES.includes(next)) {
+    $("continue").href = next;
+    $("continue").textContent = next === "/" ? "Open the assistant" : `Continue to ${next}`;
+  }
+}
+
+function showForm() {
+  $("session").hidden = true;
+  $("form").hidden = false;
+  if ($("sample-rows").children.length) $("samples").hidden = false;
+  $("employee").focus();
+}
+
+async function signIn(e) {
+  e.preventDefault();
+  $("error").textContent = "";
+  $("submit").disabled = true;
+  try {
+    const res = await fetch("/v1/auth/login", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({company_id: $("company").value, employee_id: $("employee").value.trim()}),
+    });
+    const body = await res.json();
+    if (!res.ok) { $("error").textContent = body.message || "Sign-in failed. Please try again."; return; }
+    const profile = {...body.employee, ...body.company, expires_at: body.expires_at};
+    store(TOKEN_KEY, body.access_token);
+    store(PROFILE_KEY, JSON.stringify(profile));
+    showSession(body.access_token, profile);
+  } catch (_) {
+    $("error").textContent = "Couldn't reach the server. Please try again in a minute.";
+  } finally {
+    $("submit").disabled = false;
+  }
+}
+
+async function signOut() {
+  const token = load(TOKEN_KEY);
+  if (token) {
+    try { await fetch("/v1/auth/logout", {method: "POST", headers: {Authorization: `Bearer ${token}`}}); } catch (_) {}
+  }
+  store(TOKEN_KEY, null);
+  store(PROFILE_KEY, null);
+  showForm();
+}
+
+async function resume() {
+  // Already signed in from an earlier visit? Show that session if it still works.
+  // Arriving with ?next= means the server found no valid sign-in cookie, so the
+  // browser must sign in again whatever is left in local storage.
+  const token = load(TOKEN_KEY);
+  let profile = null;
+  try { profile = JSON.parse(load(PROFILE_KEY)); } catch (_) {}
+  if (next) { store(TOKEN_KEY, null); store(PROFILE_KEY, null); return false; }
+  if (!token || !profile) return false;
+  const res = await fetch("/v1/me", {headers: {Authorization: `Bearer ${token}`}});
+  if (!res.ok) { store(TOKEN_KEY, null); store(PROFILE_KEY, null); return false; }
+  showSession(token, profile);
+  return true;
+}
+
+$("reveal").onclick = () => {
+  const hidden = $("token").type === "password";
+  $("token").type = hidden ? "text" : "password";
+  $("reveal").textContent = hidden ? "Hide" : "Show";
+};
+$("copy").onclick = async () => {
+  try { await navigator.clipboard.writeText($("token").value); }
+  catch (_) { $("token").type = "text"; $("token").select(); document.execCommand("copy"); $("token").type = "password"; }
+  $("copy").textContent = "Copied";
+  setTimeout(() => { $("copy").textContent = "Copy"; }, 1500);
+};
+$("form").onsubmit = signIn;
+$("signout").onclick = signOut;
+
+(async () => {
+  await loadCompanies();
+  await loadSamples();
+  if (!(await resume())) showForm();
+})();
+</script>
+</body>
+</html>
