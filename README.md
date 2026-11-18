@@ -29,7 +29,7 @@ Without an API key the service still starts. Retrieval works, and questions get 
 | Evaluation without a key (retrieval only) | `docker compose run --rm app python -m evaluation.run --llm none` |
 | Latency benchmark (server must be up) | `python scripts/bench.py` |
 
-To run without Docker you need Python 3.11+: `pip install -e ".[dev]"`, then `uvicorn app.main:app`.
+To run without Docker you need Python 3.11+: `pip install -e ".[dev]"`, then `uvicorn app.main:serve --factory`.
 
 ### Configuration
 

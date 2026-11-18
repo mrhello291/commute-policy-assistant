@@ -1,7 +1,8 @@
 """Application entry point.
 
 `create_app()` builds the FastAPI app. Keeping construction in a factory lets
-tests spin up isolated instances instead of sharing a module-level global.
+tests spin up isolated instances instead of sharing a module-level global;
+`serve()` is what uvicorn calls in production.
 """
 
 import logging
@@ -53,5 +54,12 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     return app
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-app = create_app()
+def serve() -> FastAPI:
+    """Entry point for uvicorn: `uvicorn app.main:serve --factory`.
+
+    Building the app only when the server starts (instead of at import)
+    keeps tests from loading the embedding model or reading `.env` just by
+    importing this module.
+    """
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    return create_app()
