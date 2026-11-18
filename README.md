@@ -296,7 +296,7 @@ about 3 runs a day per key. Tests never touch the network.
 
 **Shipped improvement: contextual section headers (a chunking change).** Each chunk is embedded as
 `<document title> > <section path>` followed by the section text, instead of the bare section text.
-Same 43 questions, same model, run back to back:
+The original 43 questions, same model, run back to back (measured on the earlier, shorter policies):
 
 | | Before: plain chunks | **After: contextual headers** |
 |---|---|---|
@@ -309,6 +309,11 @@ Many policy sections are a sentence or two. On its own, *"Each trip is capped at
 that it's about cost caps or which company it belongs to, and the heading supplies both. **Cost:** about
 15 extra tokens per chunk at indexing time, nothing at query time, and one `if` in `Chunk.indexed_text`.
 Reproduce it with `python -m evaluation.run --no-headers` vs `python -m evaluation.run`.
+
+After the sample policies were rebuilt from the research above, the full set (58 cases, 15 of them new)
+scored 58/58 with hit@3 1.0, 0 leaks and p95 1233 ms. That is one run on changed documents, so it is
+a check that nothing regressed and not a claim of improvement; details in
+[docs/EVALUATION.md](docs/EVALUATION.md#35-re-run-after-rebuilding-the-sample-policies).
 
 **Tried, measured, not shipped: hybrid BM25 + dense with reciprocal rank fusion** (`RETRIEVER=hybrid`).
 It scored 41/43, hit@1 0.839. It fixed the one dense failure ("salary" is a BM25 match) but lost two
@@ -368,4 +373,4 @@ docs/EVALUATION.md  evaluation report
 These are in [docs/EVALUATION.md](docs/EVALUATION.md#4-known-failures). In short: one paraphrase
 (*"money cut from my salary"*) gets a safe "not covered" because retrieval misses the no-show section.
 Eligibility answers can omit a condition when the relevant sections rank below the top 3. The evaluation
-set is small (43 cases), so one case is about 2 points.
+set is small (58 cases), so one case is about 2 points.
