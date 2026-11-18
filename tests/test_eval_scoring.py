@@ -2,7 +2,7 @@ from evaluation.scoring import first_gold_rank, percentile, score_case, summaris
 
 CASE = {
     "id": "x",
-    "company": "arcadia",
+    "company": "yamuna",
     "category": "direct",
     "question": "Escort time?",
     "expected": {
@@ -18,9 +18,9 @@ def actual(**overrides):
     base = {
         "status": "answered",
         "answer": "An escort travels on drops after 7:30 PM.",
-        "citations": [{"section": "4.2", "company_id": "arcadia"}],
+        "citations": [{"section": "4.2", "company_id": "yamuna"}],
         "retrieved_sections": ["4.1", "4.2", "4.3"],
-        "retrieved_chunk_ids": ["arcadia:a", "arcadia:b", "arcadia:c"],
+        "retrieved_chunk_ids": ["yamuna:a", "yamuna:b", "yamuna:c"],
         "llm_calls": 1,
         "latency_ms": 900.0,
     }
@@ -44,12 +44,12 @@ def test_other_companys_value_is_a_leak():
 
 
 def test_wrong_citation_fails():
-    score = score_case(CASE, actual(citations=[{"section": "9", "company_id": "arcadia"}]))
+    score = score_case(CASE, actual(citations=[{"section": "9", "company_id": "yamuna"}]))
     assert not score.checks["citation"]
 
 
 def test_foreign_chunk_fails_isolation():
-    score = score_case(CASE, actual(retrieved_chunk_ids=["arcadia:a", "bluepeak:b"]))
+    score = score_case(CASE, actual(retrieved_chunk_ids=["yamuna:a", "gomti:b"]))
     assert not score.passed and not score.checks["isolation"]
 
 

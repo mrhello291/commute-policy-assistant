@@ -25,7 +25,7 @@ def _claims(**overrides):
     now = datetime.now(UTC)
     claims = {
         "sub": "emp-1",
-        "company_id": "arcadia",
+        "company_id": "yamuna",
         "role": "employee",
         "iss": ISSUER,
         "aud": AUDIENCE,
@@ -37,8 +37,8 @@ def _claims(**overrides):
 
 
 def test_round_trip(issuer, verifier):
-    token = issuer.issue("emp-1", "arcadia", Role.POLICY_ADMIN)
-    assert verifier.verify(token) == Principal("emp-1", "arcadia", Role.POLICY_ADMIN)
+    token = issuer.issue("emp-1", "yamuna", Role.POLICY_ADMIN)
+    assert verifier.verify(token) == Principal("emp-1", "yamuna", Role.POLICY_ADMIN)
 
 
 def test_expired_token_rejected(verifier):

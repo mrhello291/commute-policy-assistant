@@ -51,10 +51,10 @@ def test_container_builds_hybrid_retriever(container):
 
 def test_hybrid_finds_keyword_match_and_stays_in_tenant(container):
     results = container.retriever.retrieve(
-        "bluepeak", 1, "How much money gets cut from my salary if I keep missing my cab?", 3
+        "gomti", 1, "How much money gets cut from my salary if I keep missing my cab?", 3
     )
     assert results[0].chunk.section_id == "8"
-    assert {r.chunk.company_id for r in results} == {"bluepeak"}
+    assert {r.chunk.company_id for r in results} == {"gomti"}
     assert len(results) == 3
 
 
@@ -62,12 +62,12 @@ def test_bm25_index_follows_new_versions(container, settings):
     from tests.conftest import POLICY_DIR
 
     v3 = (
-        (POLICY_DIR / "arcadia" / "v2.md")
+        (POLICY_DIR / "yamuna" / "v2.md")
         .read_text()
         .replace("version: 2", "version: 3")
         .replace("Guests must make their", "Pets and guests must make their")
     )
-    container.retriever.retrieve("arcadia", 2, "guests", 3)  # warm the cache
+    container.retriever.retrieve("yamuna", 2, "guests", 3)  # warm the cache
     container.ingestion.ingest(v3)
-    results = container.retriever.retrieve("arcadia", 3, "pets and guests", 3)
+    results = container.retriever.retrieve("yamuna", 3, "pets and guests", 3)
     assert results[0].chunk.version == 3 and results[0].chunk.section_id == "9"

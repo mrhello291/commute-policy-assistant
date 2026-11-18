@@ -38,22 +38,22 @@ def test_answer_with_citation(make_client):
     body = response.json()
     assert body["status"] == "answered"
     assert body["answer"] == "Yes, after 7:30 PM."
-    assert body["citations"][0]["document"] == "Arcadia Software Employee Transport Policy"
-    assert body["policy"] == {"document": "Arcadia Software Employee Transport Policy", "version": 2}
+    assert body["citations"][0]["document"] == "Yamuna Software Services Employee Transport Policy"
+    assert body["policy"] == {"document": "Yamuna Software Services Employee Transport Policy", "version": 2}
     assert body["meta"]["llm_calls"] == 1
     assert body["request_id"] == response.headers["X-Request-ID"]
 
 
 def test_company_comes_from_the_token_only(make_client):
     client, llm = make_client([GOOD])
-    client.post("/v1/ask", json={"question": "Do I get an escort?"}, headers=auth(client, "corvane"))
-    assert "Corvane Health" in llm.calls[0].system
-    assert "Arcadia" not in llm.calls[0].user
+    client.post("/v1/ask", json={"question": "Do I get an escort?"}, headers=auth(client, "medhavi"))
+    assert "Medhavi Health" in llm.calls[0].system
+    assert "Yamuna" not in llm.calls[0].user
 
 
 @pytest.mark.parametrize(
     "extra",
-    [{"company_id": "bluepeak"}, {"company": "bluepeak"}, {"version": 1}, {"filter": {"company_id": "bluepeak"}}],
+    [{"company_id": "gomti"}, {"company": "gomti"}, {"version": 1}, {"filter": {"company_id": "gomti"}}],
 )
 def test_body_cannot_override_company_or_version(make_client, extra):
     client, llm = make_client([GOOD])
@@ -64,8 +64,8 @@ def test_body_cannot_override_company_or_version(make_client, extra):
 
 def test_query_string_is_ignored(make_client):
     client, llm = make_client([GOOD])
-    client.post("/v1/ask?company_id=bluepeak", json={"question": "Do I get an escort?"}, headers=auth(client))
-    assert "Arcadia Software" in llm.calls[0].system
+    client.post("/v1/ask?company_id=gomti", json={"question": "Do I get an escort?"}, headers=auth(client))
+    assert "Yamuna Software Services" in llm.calls[0].system
 
 
 @pytest.mark.parametrize("question", ["", "  ", "hi", "x" * 501])

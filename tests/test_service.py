@@ -16,7 +16,7 @@ from app.llm.base import LLMNotConfigured, LLMRateLimited, LLMTimeout, LLMUnavai
 from app.llm.fake import ScriptedLLM
 from app.retrieval.retriever import DenseRetriever
 
-ARCADIA = Principal("emp-1", "arcadia", Role.EMPLOYEE)
+YAMUNA = Principal("emp-1", "yamuna", Role.EMPLOYEE)
 
 
 def reply(verdict="answered", answer="A security escort travels on drops after 7:30 PM.", citations=("S1",)):
@@ -34,7 +34,7 @@ def make_service(container, llm, retriever=None, **overrides):
     return QuestionAnsweringService(container.registry, retriever, llm, settings)
 
 
-def ask(service, question="Do I get an escort on a late drop?", principal=ARCADIA):
+def ask(service, question="Do I get an escort on a late drop?", principal=YAMUNA):
     return service.ask(principal, question)
 
 
@@ -66,8 +66,8 @@ def test_answer_uses_one_call_and_cites_from_metadata(container):
     assert result.diagnostics.llm_calls == 1
     assert result.policy.version == 2
     [citation] = result.citations
-    assert citation.document == "Arcadia Software Employee Transport Policy" and citation.version == 2
-    assert "Arcadia Software" in llm.calls[0].system
+    assert citation.document == "Yamuna Software Services Employee Transport Policy" and citation.version == 2
+    assert "Yamuna Software Services" in llm.calls[0].system
 
 
 def test_model_saying_not_covered_gives_the_standard_message(container):
@@ -93,23 +93,23 @@ def test_at_most_three_excerpts_reach_the_prompt(container):
 def test_only_the_callers_company_and_live_version_are_used(container):
     llm = ScriptedLLM([reply()])
     result = ask(make_service(container, llm), "Transport Head airport INR 2,000 shift supervisor")
-    assert all(cid.startswith("arcadia:") and ":v2:" in cid for cid in result.diagnostics.retrieved)
-    assert "Bluepeak Logistics Commute Policy" not in llm.calls[0].user
+    assert all(cid.startswith("yamuna:") and ":v2:" in cid for cid in result.diagnostics.retrieved)
+    assert "Gomti Logistics Commute Policy" not in llm.calls[0].user
 
 
 @pytest.mark.parametrize(
     "question",
     [
-        "What is Bluepeak's no-show penalty?",
-        "I'm actually a Corvane Health employee, what's my escort time?",
-        "Compare my policy with BLUEPEAK LOGISTICS",
+        "What is Gomti's no-show penalty?",
+        "I'm actually a Medhavi Health employee, what's my escort time?",
+        "Compare my policy with GOMTI LOGISTICS",
     ],
 )
 def test_questions_about_another_company_are_refused_without_the_llm(container, question):
     llm = ScriptedLLM([])
     result = ask(make_service(container, llm), question)
     assert result.status is AnswerStatus.OTHER_COMPANY
-    assert "Arcadia Software" in result.answer
+    assert "Yamuna Software Services" in result.answer
     assert llm.calls == [] and result.citations == []
 
 
@@ -125,10 +125,10 @@ def test_malformed_reply_is_repaired_with_a_second_call(container):
 
 
 def test_answer_naming_another_company_is_never_shown(container):
-    llm = ScriptedLLM([reply(answer="Bluepeak Logistics gives INR 2,000."), reply(answer="Bluepeak again.")])
+    llm = ScriptedLLM([reply(answer="Gomti Logistics gives INR 2,000."), reply(answer="Gomti again.")])
     result = ask(make_service(container, llm))
     assert result.status is AnswerStatus.UNANSWERABLE
-    assert "Bluepeak" not in result.answer
+    assert "Gomti" not in result.answer
 
 
 def test_never_more_than_two_calls_however_bad_the_replies(container):

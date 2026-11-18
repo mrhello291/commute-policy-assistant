@@ -7,7 +7,7 @@ from app.retrieval.models import ScoredChunk
 def chunk(
     section_id="4.2",
     text="A security escort travels on every drop after 7:30 PM with a woman employee.",
-    company="arcadia",
+    company="yamuna",
     version=2,
     flags=(),
     title="Security escort",

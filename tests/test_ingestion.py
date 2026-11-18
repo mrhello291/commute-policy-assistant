@@ -12,8 +12,8 @@ from app.retrieval.embeddings import HashingEmbedder
 from app.retrieval.vector_store import ChromaPolicyStore
 
 POLICY_DIR = Path(__file__).resolve().parent.parent / "data" / "policies"
-ARCADIA_V1 = (POLICY_DIR / "arcadia" / "v1.md").read_text()
-ARCADIA_V2 = (POLICY_DIR / "arcadia" / "v2.md").read_text()
+YAMUNA_V1 = (POLICY_DIR / "yamuna" / "v1.md").read_text()
+YAMUNA_V2 = (POLICY_DIR / "yamuna" / "v2.md").read_text()
 
 
 class FlakyEmbedder(HashingEmbedder):
@@ -57,103 +57,103 @@ def make_service(paths, embedder=None, store=None):
     return IngestionService(registry, store, embedder or HashingEmbedder()), registry, store
 
 
-def versions_in_store(store, company="arcadia"):
+def versions_in_store(store, company="yamuna"):
     return {c.version for v in (1, 2, 3) for c in store.chunks(company, v)}
 
 
 def test_first_ingest_activates(paths):
     service, registry, store = make_service(paths)
-    report = service.ingest(ARCADIA_V1)
+    report = service.ingest(YAMUNA_V1)
     assert report.activated and report.previous_version is None
-    assert registry.active("arcadia").version == 1
-    assert report.chunk_count == len(store.chunks("arcadia", 1)) > 0
+    assert registry.active("yamuna").version == 1
+    assert report.chunk_count == len(store.chunks("yamuna", 1)) > 0
 
 
 def test_new_version_replaces_old_completely(paths):
     service, registry, store = make_service(paths)
-    service.ingest(ARCADIA_V1)
-    report = service.ingest(ARCADIA_V2)
+    service.ingest(YAMUNA_V1)
+    report = service.ingest(YAMUNA_V2)
     assert report.previous_version == 1
-    assert registry.active("arcadia").version == 2
+    assert registry.active("yamuna").version == 2
     assert versions_in_store(store) == {2}
-    texts = " ".join(c.text for c in store.chunks("arcadia", 2))
+    texts = " ".join(c.text for c in store.chunks("yamuna", 2))
     assert "7:30 PM" in texts and "8:00 PM" not in texts
 
 
 def test_reingesting_the_live_version_is_a_no_op(paths):
     service, _, _ = make_service(paths)
-    service.ingest(ARCADIA_V1)
-    report = service.ingest(ARCADIA_V1)
+    service.ingest(YAMUNA_V1)
+    report = service.ingest(YAMUNA_V1)
     assert not report.activated and report.note == "already active"
 
 
 def test_older_version_is_refused(paths):
     service, registry, _ = make_service(paths)
-    service.ingest(ARCADIA_V2)
+    service.ingest(YAMUNA_V2)
     with pytest.raises(VersionConflict):
-        service.ingest(ARCADIA_V1)
-    assert registry.active("arcadia").version == 2
+        service.ingest(YAMUNA_V1)
+    assert registry.active("yamuna").version == 2
 
 
 def test_failed_embedding_keeps_old_version_live(paths):
     service, registry, store = make_service(paths, embedder=FlakyEmbedder(fail_on_call=2))
-    service.ingest(ARCADIA_V1)
+    service.ingest(YAMUNA_V1)
     with pytest.raises(IngestionFailed):
-        service.ingest(ARCADIA_V2)
-    assert registry.active("arcadia").version == 1
-    assert registry.get("arcadia", 2).status == "failed"
+        service.ingest(YAMUNA_V2)
+    assert registry.active("yamuna").version == 1
+    assert registry.get("yamuna", 2).status == "failed"
     assert versions_in_store(store) == {1}
 
 
 def test_crash_halfway_through_writing_chunks_keeps_old_version_live(paths):
     store = StoreThatDiesHalfway(paths[1])
     service, registry, _ = make_service(paths, store=store)
-    service.ingest(ARCADIA_V1)
+    service.ingest(YAMUNA_V1)
     store.armed = True
     with pytest.raises(IngestionFailed):
-        service.ingest(ARCADIA_V2)
-    assert registry.active("arcadia").version == 1
+        service.ingest(YAMUNA_V2)
+    assert registry.active("yamuna").version == 1
     assert versions_in_store(store) == {1}
 
 
 def test_failed_version_can_be_retried(paths):
     service, registry, _ = make_service(paths, embedder=FlakyEmbedder(fail_on_call=2))
-    service.ingest(ARCADIA_V1)
+    service.ingest(YAMUNA_V1)
     with pytest.raises(IngestionFailed):
-        service.ingest(ARCADIA_V2)
-    service.ingest(ARCADIA_V2)
-    assert registry.active("arcadia").version == 2
+        service.ingest(YAMUNA_V2)
+    service.ingest(YAMUNA_V2)
+    assert registry.active("yamuna").version == 2
 
 
 def test_reconcile_cleans_up_after_a_process_crash(paths):
     """Simulates the process dying after writing chunks but before activation."""
     service, registry, store = make_service(paths)
-    service.ingest(ARCADIA_V1)
-    doc = MarkdownPolicyParser().parse(ARCADIA_V2)
+    service.ingest(YAMUNA_V1)
+    doc = MarkdownPolicyParser().parse(YAMUNA_V2)
     registry.begin(doc)
     chunks = SectionChunker().chunk(doc)
     store.add(chunks, HashingEmbedder().embed([c.indexed_text for c in chunks]))
 
     restarted, registry, store = make_service(paths)
     report = restarted.reconcile()
-    assert report.interrupted_versions == [("arcadia", 2)]
+    assert report.interrupted_versions == [("yamuna", 2)]
     assert report.removed_chunks == len(chunks)
-    assert registry.active("arcadia").version == 1
+    assert registry.active("yamuna").version == 1
     assert versions_in_store(store) == {1}
 
 
 def test_admin_cannot_ingest_for_another_company(paths):
     service, registry, _ = make_service(paths)
     with pytest.raises(PermissionDenied):
-        service.ingest(ARCADIA_V1, acting_company="bluepeak")
-    assert registry.active("arcadia") is None
+        service.ingest(YAMUNA_V1, acting_company="gomti")
+    assert registry.active("yamuna") is None
 
 
 def test_bad_document_writes_nothing(paths):
     service, registry, store = make_service(paths)
     with pytest.raises(PolicyFormatError):
-        service.ingest("---\ncompany_id: arcadia\n---\n## 1. A\n\nx\n")
-    assert registry.active("arcadia") is None
+        service.ingest("---\ncompany_id: yamuna\n---\n## 1. A\n\nx\n")
+    assert registry.active("yamuna") is None
     assert store.company_ids() == []
 
 
@@ -161,19 +161,19 @@ def test_listeners_hear_about_activation(paths):
     service, _, _ = make_service(paths)
     heard = []
     service.on_activate(heard.append)
-    service.ingest(ARCADIA_V1)
-    service.ingest(ARCADIA_V1)
-    assert heard == ["arcadia"]
+    service.ingest(YAMUNA_V1)
+    service.ingest(YAMUNA_V1)
+    assert heard == ["yamuna"]
 
 
 def test_concurrent_uploads_of_same_version_leave_one_clean_copy(paths):
     from concurrent.futures import ThreadPoolExecutor
 
     service, registry, store = make_service(paths)
-    service.ingest(ARCADIA_V1)
+    service.ingest(YAMUNA_V1)
     with ThreadPoolExecutor(max_workers=4) as pool:
-        reports = list(pool.map(lambda _: service.ingest(ARCADIA_V2), range(4)))
+        reports = list(pool.map(lambda _: service.ingest(YAMUNA_V2), range(4)))
     [activated] = [r for r in reports if r.activated]
-    assert registry.active("arcadia").version == 2
+    assert registry.active("yamuna").version == 2
     assert versions_in_store(store) == {2}
-    assert len(store.chunks("arcadia", 2)) == activated.chunk_count
+    assert len(store.chunks("yamuna", 2)) == activated.chunk_count

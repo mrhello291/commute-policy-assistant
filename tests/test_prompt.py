@@ -5,13 +5,13 @@ from tests.factories import scored
 
 def test_excerpts_are_labelled_and_fenced_with_a_random_token():
     excerpts = [scored(section_id="4.2"), scored(section_id="4.1", title="Night window")]
-    prompt = PromptBuilder().build("Arcadia Software", "Do I get an escort?", excerpts)
+    prompt = PromptBuilder().build("Yamuna Software Services", "Do I get an escort?", excerpts)
     assert list(prompt.labels) == ["S1", "S2"]
     assert f"<<EXCERPT S1 {prompt.token}>>" in prompt.user
     assert f"<<END S2 {prompt.token}>>" in prompt.user
     assert f"<<QUESTION {prompt.token}>>\nDo I get an escort?\n<<END QUESTION {prompt.token}>>" in prompt.user
     assert prompt.token in prompt.system
-    assert "Arcadia Software" in prompt.system
+    assert "Yamuna Software Services" in prompt.system
 
 
 def test_token_differs_per_request():

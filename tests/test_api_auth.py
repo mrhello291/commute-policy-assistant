@@ -4,16 +4,16 @@ from app.config import Environment
 from app.main import create_app
 
 
-def _token(client, company="arcadia", role="employee"):
+def _token(client, company="yamuna", role="employee"):
     response = client.post("/dev/token", json={"subject": "emp-7", "company_id": company, "role": role})
     assert response.status_code == 200
     return response.json()["access_token"]
 
 
 def test_identity_comes_from_token(client):
-    token = _token(client, "bluepeak")
+    token = _token(client, "gomti")
     response = client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
-    assert response.json() == {"subject": "emp-7", "company_id": "bluepeak", "role": "employee"}
+    assert response.json() == {"subject": "emp-7", "company_id": "gomti", "role": "employee"}
 
 
 def test_dev_token_endpoint_rejects_unknown_fields(client):

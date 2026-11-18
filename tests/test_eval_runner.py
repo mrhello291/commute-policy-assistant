@@ -13,7 +13,7 @@ def test_runner_writes_the_required_fields(tmp_path):
         llm="none",
         embedder="hashing",
         cases=str(CASES_FILE),
-        only="arc-01,arc-16,cor-02",
+        only="yam-01,yam-16,med-02",
         no_headers=False,
         name=None,
         out=str(out),
@@ -22,7 +22,7 @@ def test_runner_writes_the_required_fields(tmp_path):
     summary = run(args)
 
     lines = [json.loads(line) for line in out.read_text().splitlines()]
-    assert [line["id"] for line in lines] == ["arc-01", "arc-16", "cor-02"]
+    assert [line["id"] for line in lines] == ["yam-01", "yam-16", "med-02"]
     for line in lines:
         assert set(line) == {"id", "input", "expected", "actual", "pass", "notes"}
         assert isinstance(line["pass"], bool)

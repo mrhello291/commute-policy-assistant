@@ -120,7 +120,7 @@ class QuestionAnsweringService:
             return AnswerResult(AnswerStatus.NO_POLICY, messages.NO_POLICY, diagnostics=diagnostics)
 
         # A question about another client's policy is refused in code. Letting
-        # the model handle it risks an answer like "Bluepeak's rule is ..."
+        # the model handle it risks an answer like "Gomti's rule is ..."
         # built from the caller's own policy, which is wrong and confusing.
         others = self._other_company_names(company_id)
         if _mentions_any(question, others):

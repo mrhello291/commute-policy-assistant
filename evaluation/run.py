@@ -5,7 +5,7 @@
     python -m evaluation.run --llm none            # retrieval only, no API key needed
 
 Each run builds a fresh, private instance of the service in a temporary
-directory and loads the bundled policies in version order (so Arcadia goes
+directory and loads the bundled policies in version order (so Yamuna goes
 v1 -> v2 during setup, exactly like a live update). Results never depend on
 whatever state a running server happens to be in.
 

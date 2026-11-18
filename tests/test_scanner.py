@@ -35,9 +35,9 @@ def test_ordinary_policy_text_is_clean(text):
     assert InjectionScanner().scan(text) == ()
 
 
-def test_only_the_planted_corvane_section_is_flagged():
+def test_only_the_planted_medhavi_section_is_flagged():
     flagged = {}
     for path in sorted(POLICY_DIR.glob("*/v1.md")):
         chunks = InjectionScanner().flag(SectionChunker().chunk(MarkdownPolicyParser().parse(path.read_text())))
         flagged.update({c.chunk_id: c.flags for c in chunks if c.flags})
-    assert list(flagged) == ["corvane:corvane-staff-transport-policy:v1:9:0"]
+    assert list(flagged) == ["medhavi:medhavi-staff-transport-policy:v1:9:0"]
