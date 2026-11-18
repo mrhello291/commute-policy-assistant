@@ -27,6 +27,7 @@ def _claims(**overrides):
         "sub": "emp-1",
         "company_id": "yamuna",
         "role": "employee",
+        "jti": "abc123",
         "iss": ISSUER,
         "aud": AUDIENCE,
         "iat": now,
@@ -37,8 +38,16 @@ def _claims(**overrides):
 
 
 def test_round_trip(issuer, verifier):
-    token = issuer.issue("emp-1", "yamuna", Role.POLICY_ADMIN)
-    assert verifier.verify(token) == Principal("emp-1", "yamuna", Role.POLICY_ADMIN)
+    signed = issuer.issue("emp-1", "yamuna", Role.POLICY_ADMIN)
+    verified = verifier.verify(signed.token)
+    assert verified.principal == Principal("emp-1", "yamuna", Role.POLICY_ADMIN)
+    assert verified.jti == signed.jti
+    assert verified.expires_at == signed.expires_at
+    assert signed.expires_at - signed.issued_at == timedelta(minutes=5)
+
+
+def test_every_token_gets_its_own_id(issuer):
+    assert issuer.issue("emp-1", "yamuna").jti != issuer.issue("emp-1", "yamuna").jti
 
 
 def test_expired_token_rejected(verifier):
@@ -65,7 +74,7 @@ def test_wrong_audience_rejected(verifier):
         verifier.verify(token)
 
 
-@pytest.mark.parametrize("claim", ["company_id", "sub", "role", "exp"])
+@pytest.mark.parametrize("claim", ["company_id", "sub", "role", "exp", "jti"])
 def test_missing_claim_rejected(verifier, claim):
     claims = _claims()
     del claims[claim]
@@ -73,7 +82,7 @@ def test_missing_claim_rejected(verifier, claim):
         verifier.verify(jwt.encode(claims, SECRET, "HS256"))
 
 
-@pytest.mark.parametrize("field,value", [("company_id", ""), ("role", "superuser")])
+@pytest.mark.parametrize("field,value", [("company_id", ""), ("role", "superuser"), ("jti", "")])
 def test_bad_claim_values_rejected(verifier, field, value):
     with pytest.raises(AuthError):
         verifier.verify(jwt.encode(_claims(**{field: value}), SECRET, "HS256"))

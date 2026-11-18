@@ -29,5 +29,5 @@ class TokenResponse(BaseModel):
 
 @router.post("/token", response_model=TokenResponse)
 def issue_token(body: TokenRequest, container: Container = Depends(get_container)) -> TokenResponse:
-    token = container.token_issuer.issue(body.subject, body.company_id, body.role)
+    token = container.token_issuer.issue(body.subject, body.company_id, body.role).token
     return TokenResponse(access_token=token)

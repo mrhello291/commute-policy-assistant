@@ -27,7 +27,7 @@ def get_principal(
 ) -> Principal:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise AuthError("missing bearer token")
-    return container.token_verifier.verify(credentials.credentials)
+    return container.token_verifier.verify(credentials.credentials).principal
 
 
 def require_role(role: Role) -> Callable[..., Principal]:
