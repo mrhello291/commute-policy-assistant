@@ -14,6 +14,22 @@ class AuthError(AppError):
     """The caller could not be authenticated (missing, expired or forged token)."""
 
 
+class LoginRefused(AppError):
+    """Sign-in was refused. `str(exc)` is the company name where one is known."""
+
+
+class UnknownCompany(LoginRefused):
+    """The company named at sign-in is not one we serve."""
+
+
+class UnknownEmployee(LoginRefused):
+    """No employee with that ID works at the named company."""
+
+
+class AccountInactive(LoginRefused):
+    """The employee exists but no longer works there (or is suspended)."""
+
+
 class AuthUnavailable(AppError):
     """Sign-in state could not be checked (the token store is unreachable).
 
