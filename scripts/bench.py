@@ -1,7 +1,7 @@
 """Measures end-to-end latency of /v1/ask against a running server.
 
     python scripts/bench.py                      # against http://localhost:8000
-    python scripts/bench.py --rounds 2 --pace 6  # more samples, slower pace
+    python scripts/bench.py --rounds 2 --pace 15 # more samples, slower pace
 
 Times the full HTTP round trip (token check, retrieval, LLM call, response),
 which is what an employee waits for. Questions come from the evaluation set.
@@ -41,7 +41,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--url", default="http://localhost:8000")
     parser.add_argument("--rounds", type=int, default=1, help="times to go through the question list")
-    parser.add_argument("--pace", type=float, default=5.0, help="seconds between requests")
+    parser.add_argument("--pace", type=float, default=12.0, help="seconds between requests (free-tier limits)")
     args = parser.parse_args()
 
     cases = [json.loads(line) for line in CASES.read_text().splitlines() if line.strip()]
