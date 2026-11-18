@@ -69,5 +69,5 @@ def test_bm25_index_follows_new_versions(container, settings):
     )
     container.retriever.retrieve("arcadia", 2, "guests", 3)  # warm the cache
     container.ingestion.ingest(v3)
-    results = container.retriever.retrieve("arcadia", 3, "pets", 3)
+    results = container.retriever.retrieve("arcadia", 3, "pets and guests", 3)
     assert results[0].chunk.version == 3 and results[0].chunk.section_id == "9"
