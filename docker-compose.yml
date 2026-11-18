@@ -8,6 +8,9 @@ services:
         required: false
     volumes:
       - policy_data:/data
+      # The bundled data from the host, read-only, so an edit to
+      # data/employees.json reaches the running service without a rebuild.
+      - ./data:/srv/data:ro
       # So `docker compose run --rm app python -m evaluation.run` leaves its
       # results on the host.
       - ./evaluation/results:/srv/evaluation/results
