@@ -12,19 +12,19 @@ Taken from Case Study B (the policy-related lines only), with where each one is 
 
 | # | Requirement in the statement | Where it is met |
 |---|---|---|
-| R1 | "Three short policy documents for three fictional companies" | Arcadia Software, Bluepeak Logistics, Corvane Health. Each is 1,000 to 1,400 words. |
+| R1 | "Three short policy documents for three fictional companies" | Yamuna Software Services, Gomti Logistics, Medhavi Health. Each is 1,000 to 1,400 words. |
 | R2 | "overlapping terms and deliberately contradictory rules so any cross-company leak shows" | Every company answers the same set of questions (escort time, cut-off, cap, no-show, guests, weekends, airport) with a different value. See the contrast table in section 4. |
-| R3 | Policies cover eligibility "by grade, shift or distance from office" | Arcadia: grade (L1–L5) and distance (> 5 km). Bluepeak: all grades, distance (> 3 km). Corvane: rostered shift only, any distance. |
-| R4 | Night-shift rules, with a women's security escort "after 8 PM at one company, after 10 PM at another" | Arcadia escort after 8:00 PM in v1 (7:30 PM in v2), Bluepeak after 10:00 PM, Corvane after 9:00 PM. |
-| R5 | Cut-off timings | Arcadia 4 h before, Bluepeak 2 h before, Corvane 6:00 PM the previous day. |
+| R3 | Policies cover eligibility "by grade, shift or distance from office" | Yamuna: grade (L1–L5) and distance (> 5 km). Gomti: all grades, distance (> 3 km). Medhavi: rostered shift only, any distance. |
+| R4 | Night-shift rules, with a women's security escort "after 8 PM at one company, after 10 PM at another" | Yamuna escort after 8:00 PM in v1 (7:30 PM in v2), Gomti after 10:00 PM, Medhavi after 9:00 PM. |
+| R5 | Cut-off timings | Yamuna 4 h before, Gomti 2 h before, Medhavi 6:00 PM the previous day. |
 | R6 | Cost caps | INR 800 (900 in v2) / 1,000 / 600, plus separate airport caps. |
 | R7 | Ad-hoc trip approvals | Reporting manager / site Transport Head / shift supervisor. |
-| R8 | Weekend and holiday pickups | Arcadia with L2 approval, Bluepeak not provided (reimbursement), Corvane automatic from the roster. |
-| R9 | Guest travel | Arcadia not allowed, Bluepeak with HR approval and host present, Corvane silent. |
+| R8 | Weekend and holiday pickups | Yamuna with L2 approval, Gomti not provided (reimbursement), Medhavi automatic from the roster. |
+| R9 | Guest travel | Yamuna not allowed, Gomti with HR approval and host present, Medhavi silent. |
 | R10 | No-show penalties | Warning then 7-day suspension / INR 250 per no-show / one month off the roster. |
-| R11 | "Policies change a few times a year. Once a new version is live, the old one is dead." | Arcadia has two versions (v1 withdrawn, v2 live). Each document states its version and effective date. |
-| R12 | "Some questions have no answer in the policy at all" | Deliberate gaps: Corvane has no airport or guest rule. Bluepeak has no safe-arrival check. No company mentions pets, in-cab Wi-Fi or parking. |
-| R13 | "A policy document ... may also carry text that tries to steer the assistant" | Corvane section 9 contains an instruction aimed at AI assistants. |
+| R11 | "Policies change a few times a year. Once a new version is live, the old one is dead." | Yamuna has two versions (v1 withdrawn, v2 live). Each document states its version and effective date. |
+| R12 | "Some questions have no answer in the policy at all" | Deliberate gaps: Medhavi has no airport or guest rule. Gomti has no safe-arrival check. No company mentions pets, in-cab Wi-Fi or parking. |
+| R13 | "A policy document ... may also carry text that tries to steer the assistant" | Medhavi section 9 contains an instruction aimed at AI assistants. |
 | R14 | Employees must "see which part of the policy it came from" | Every document uses unique numbered headings (`## 4. Night-shift travel`, `### 4.2 Security escort`) so a citation is a document, version and section. |
 | R15 | The employee desk questions: 9:30 PM drop, Saturday cab, airport approver, no-show twice | Each is answerable, with a different answer, at each company (or an honest "not covered"). |
 | R16 | "usually a 10 to 30 page document" | The statement asks for *short* documents, so ours are condensed, but each keeps the full clause structure of a real policy (definitions, eligibility, booking, night rules, penalties, safety, review). |
@@ -44,14 +44,14 @@ used only to set *plausible ranges* and are not presented as legal advice.
 
   | What it shows | How we used it |
   |---|---|
-  | Eligibility is regular full-time staff only, with named exceptions approved by the BU head and HR | Arcadia's contractor/intern clause (2.3) |
-  | Pickup from nodal points up to 2 km from home, an outer service boundary of about 30 km, and a minimum-use rule for new routes | Coverage limits: Arcadia 35 km, Bluepeak 30 km. Corvane deliberately has none. |
-  | Registration with a minimum commitment of 3 months, and opt-out cut-off dates | Arcadia registration clause (2.5), 3-month commitment |
+  | Eligibility is regular full-time staff only, with named exceptions approved by the BU head and HR | Yamuna's contractor/intern clause (2.3) |
+  | Pickup from nodal points up to 2 km from home, an outer service boundary of about 30 km, and a minimum-use rule for new routes | Coverage limits: Yamuna 35 km, Gomti 30 km. Medhavi deliberately has none. |
+  | Registration with a minimum commitment of 3 months, and opt-out cut-off dates | Yamuna registration clause (2.5), 3-month commitment |
   | Cut-offs by request type: night cabs 1 h, ad-hoc 3 h, team events 24 h | Cut-offs differ by request type and by company |
   | No-show: cancel at least 15 minutes ahead, a cab is auto-cancelled after a 15-minute no-show, repeated no-shows go to the manager by email | The pickup wait, the no-show definition, and "copy the reporting manager" |
-  | Dark hours 20:00 to 06:00. Escort for women on a first pickup or last drop. | Arcadia's 8:00 PM escort and first-pickup/last-drop rule |
-  | A temporary address change allowed up to 15 days with prior approval | Address-change clauses (Arcadia 15 days, Bluepeak 7 days) |
-  | Transport must not be used for families, friends or visitors; ID card mandatory | Guest rules (Arcadia: not allowed) and the ID-card clause |
+  | Dark hours 20:00 to 06:00. Escort for women on a first pickup or last drop. | Yamuna's 8:00 PM escort and first-pickup/last-drop rule |
+  | A temporary address change allowed up to 15 days with prior approval | Address-change clauses (Yamuna 15 days, Gomti 7 days) |
+  | Transport must not be used for families, friends or visitors; ID card mandatory | Guest rules (Yamuna: not allowed) and the ID-card clause |
   | A panic button in each cab, an incident escalation matrix, a monthly route review, a revision history table | Safety and incidents section, review section, version metadata |
 
 ### 2.2 Policy templates and practitioner guidance
@@ -61,7 +61,7 @@ used only to set *plausible ranges* and are not presented as legal advice.
   non-compliance. It adds: women on late or night shifts must use company transport, a man is first
   pickup and last drop (otherwise a security person rides along), address changes at least two days
   ahead, no stops or route changes, and deviations need HR approval. We used the exceptions and
-  non-compliance structure, and the "women on night shifts use company transport" rule for Corvane.
+  non-compliance structure, and the "women on night shifts use company transport" rule for Medhavi.
 - **Cab-rental-hub template guide** (<https://cabrentalhub.in/blog/employee-transport-policy/>). Lists the
   clauses a good policy should have: definitions (shift, roster, no-show, ad-hoc, escort), a home to
   office distance band of 3 km to 35 km, night transport mandatory between 20:00 and 07:00, a 5-minute
@@ -97,12 +97,12 @@ rules. What they showed that matters for the dataset:
   Pradesh, Uttar Pradesh factories), 8 PM (Karnataka, Tamil Nadu, Haryana), 8:30 PM (Telangana),
   9 PM (Kerala, Madhya Pradesh), 9:30 PM (Maharashtra) or 10 PM (Odisha). This is the real-world
   reason it is sensible for three fictional companies to state three different escort start times
-  (8:00 PM, 9:00 PM, 10:00 PM) and for one to move its time earlier in a later version (Arcadia v2).
+  (8:00 PM, 9:00 PM, 10:00 PM) and for one to move its time earlier in a later version (Yamuna v2).
 - Common conditions: written consent from the woman before night work, free transport from home to
   work and back, driver background checks, GPS tracking, a guard or escort in the vehicle, and an
   internal committee under the POSH Act. Haryana allows a woman to opt out of employer transport in
   writing. Telangana adds the rule that a woman is not the first pickup or last drop without a guard.
-  These became the consent clause (all three), the opt-out clause (Corvane, a Haryana site), and the
+  These became the consent clause (all three), the opt-out clause (Medhavi, a Haryana site), and the
   first-pickup/last-drop rules.
 - Several of the figures in vendor blogs conflict with each other and with the state notifications
   (for example the start of Delhi's night window). Nothing from them is copied as a value.
@@ -110,7 +110,7 @@ rules. What they showed that matters for the dataset:
 ### 2.4 Hostile or irrelevant text inside documents
 
 The "text that tries to steer the assistant" requirement is a known class of attack (indirect prompt
-injection, where instructions arrive in retrieved data rather than from the user). Corvane's section 9
+injection, where instructions arrive in retrieved data rather than from the user). Medhavi's section 9
 imitates what appears in practice: a sentence addressed to "AI assistants" inside an otherwise ordinary
 section, here placed in "Digital channels" because staff-app or FAQ text is a plausible place for a
 pasted note. It tries to override the cost cap, a rule that is easy to check in an answer.
@@ -126,20 +126,20 @@ pasted note. It tries to override the cost cap, a rule that is easy to check in 
    shift at the third. No-shows are a warning ladder, a money deduction and a roster removal.
    Weekends are an approval, a reimbursement and an automatic roster.
 3. **Deliberate silence.** A policy that answers everything cannot test "the policy does not say".
-   Gaps are placed where a model is tempted to borrow from a neighbour: Corvane says nothing on
-   airport trips or guests, Bluepeak says nothing on safe-arrival checks.
+   Gaps are placed where a model is tempted to borrow from a neighbour: Medhavi says nothing on
+   airport trips or guests, Gomti says nothing on safe-arrival checks.
 4. **A realistic version change.** Policy updates in practice move a threshold and a cap, not the
-   whole document. Arcadia v2 changes exactly three numbers (night window and escort start, trip cap)
+   whole document. Yamuna v2 changes exactly three numbers (night window and escort start, trip cap)
    and says so in a "Changes in this version" section, so a stale answer is detectable.
 5. **Stable section numbers.** Heading numbers are the citation. They are fixed per topic across
    versions (section 4.2 is always the escort rule) so a verified evaluation case stays valid when a
    policy changes.
-6. **Clauses are self-contained.** Each section states its own subject ("the Arcadia cost cap"), which
+6. **Clauses are self-contained.** Each section states its own subject ("the Yamuna cost cap"), which
    helps retrieval and prevents an answer from needing another section.
 
 ## 4. The contradictions at a glance
 
-| Topic | Arcadia Software (v2) | Bluepeak Logistics | Corvane Health |
+| Topic | Yamuna Software Services (v2) | Gomti Logistics | Medhavi Health |
 |---|---|---|---|
 | Who is eligible | Grades L1–L5, home > 5 km | Every grade, home > 3 km | Rostered shift staff only |
 | Outer limit | 35 km by road | 30 km | None stated |
@@ -164,6 +164,6 @@ pasted note. It tries to override the cost cap, a rule that is easy to check in 
   as a structural model only.
 - The legal summaries are secondary sources that disagree in places and were not checked against the
   gazette. The sample policies are not legal advice and are not claimed to comply with any state's
-  rules; a real Hyderabad site, for instance, could not start its escort rule as late as Bluepeak does.
+  rules; a real Hyderabad site, for instance, could not start its escort rule as late as Gomti does.
 - The statement describes 10 to 30 page documents. Ours are short on purpose (as required) so they
   keep the clause structure and drop the annexures, route maps and escalation tables.
