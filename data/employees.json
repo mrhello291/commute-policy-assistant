@@ -1,0 +1,34 @@
+{
+  "_comment": "Mock employee directory, standing in for each client company's HR system. Login checks an employee against this file. Employee IDs are unique across all companies.",
+  "companies": [
+    {
+      "company_id": "yamuna",
+      "company_name": "Yamuna Software Services",
+      "employees": [
+        {"employee_id": "YAM-1001", "name": "Ananya Rao", "role": "employee"},
+        {"employee_id": "YAM-1002", "name": "Rohit Kulkarni", "role": "employee"},
+        {"employee_id": "YAM-1003", "name": "Meera Iyer", "role": "employee"},
+        {"employee_id": "YAM-1004", "name": "Vikram Shetty", "role": "policy_admin"}
+      ]
+    },
+    {
+      "company_id": "gomti",
+      "company_name": "Gomti Logistics",
+      "employees": [
+        {"employee_id": "GOM-2001", "name": "Sanjay Verma", "role": "employee"},
+        {"employee_id": "GOM-2002", "name": "Pooja Mishra", "role": "employee"},
+        {"employee_id": "GOM-2003", "name": "Arjun Yadav", "role": "employee", "active": false},
+        {"employee_id": "GOM-2004", "name": "Neha Srivastava", "role": "policy_admin"}
+      ]
+    },
+    {
+      "company_id": "medhavi",
+      "company_name": "Medhavi Health",
+      "employees": [
+        {"employee_id": "MED-3001", "name": "Kavya Nair", "role": "employee"},
+        {"employee_id": "MED-3002", "name": "Imran Shaikh", "role": "employee"},
+        {"employee_id": "MED-3003", "name": "Divya Menon", "role": "policy_admin"}
+      ]
+    }
+  ]
+}
