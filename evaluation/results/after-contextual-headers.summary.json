@@ -1,0 +1,58 @@
+{
+  "cases": 43,
+  "passed": 42,
+  "pass_rate": 0.977,
+  "by_category": {
+    "cross_company": {
+      "passed": 4,
+      "cases": 4
+    },
+    "direct": {
+      "passed": 9,
+      "cases": 9
+    },
+    "injection_direct": {
+      "passed": 2,
+      "cases": 2
+    },
+    "injection_indirect": {
+      "passed": 2,
+      "cases": 2
+    },
+    "not_covered": {
+      "passed": 6,
+      "cases": 6
+    },
+    "paraphrase": {
+      "passed": 17,
+      "cases": 18
+    },
+    "version": {
+      "passed": 2,
+      "cases": 2
+    }
+  },
+  "retrieval": {
+    "cases_with_gold": 31,
+    "hit_at_1": 0.871,
+    "hit_at_3": 0.968,
+    "mrr": 0.919
+  },
+  "leaks": 0,
+  "llm_calls": {
+    "max": 1,
+    "mean": 0.88
+  },
+  "latency_ms": {
+    "p50": 956.0,
+    "p95": 1322.4,
+    "max": 1829.4
+  },
+  "config": {
+    "retriever": "dense",
+    "llm": "groq:openai/gpt-oss-20b",
+    "embedder": "all-MiniLM-L6-v2",
+    "contextual_headers": true,
+    "llm_available": true
+  }
+}
