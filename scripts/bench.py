@@ -18,6 +18,8 @@ import urllib.request
 from pathlib import Path
 
 CASES = Path(__file__).resolve().parent.parent / "evaluation" / "cases.jsonl"
+# One sample employee per company (see data/employees.json).
+BENCH_ACCOUNTS = {"yamuna": "YAM-1002", "gomti": "GOM-2002", "medhavi": "MED-3002"}
 
 
 def post(url: str, body: dict, token: str | None = None) -> tuple[int, dict]:
@@ -48,9 +50,10 @@ def main() -> None:
     cases = [c for c in cases if c["expected"]["status"] != "other_company"]  # those never call the LLM
     tokens = {}
     for company in sorted({c["company"] for c in cases}):
-        status, body = post(f"{args.url}/dev/token", {"subject": "bench", "company_id": company})
+        login = {"company_id": company, "employee_id": BENCH_ACCOUNTS[company]}
+        status, body = post(f"{args.url}/v1/auth/login", login)
         if status != 200:
-            raise SystemExit(f"could not get a token for {company}: {status} {body}")
+            raise SystemExit(f"could not sign in to {company}: {status} {body}")
         tokens[company] = body["access_token"]
 
     timings, statuses = [], {}
