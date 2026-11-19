@@ -3,7 +3,34 @@
 import argparse
 import json
 
-from evaluation.run import CASES_FILE, run
+import pytest
+
+from evaluation.run import CASES_FILE, EVAL_SET_FILE, RESULTS_DIR, output_path, run
+
+
+def _args(**overrides):
+    defaults = {"out": None, "name": None, "retriever": None, "embedder": None, "no_headers": False}
+    return argparse.Namespace(**{**defaults, **overrides})
+
+
+def test_plain_run_with_an_llm_writes_the_submission_file():
+    assert output_path(_args(), "dense", llm_available=True) == EVAL_SET_FILE
+
+
+@pytest.mark.parametrize(
+    ("overrides", "llm_available", "expected"),
+    [
+        ({}, False, "retrieval-only.jsonl"),
+        ({"retriever": "hybrid"}, True, "hybrid.jsonl"),
+        ({"no_headers": True}, True, "dense.jsonl"),
+        ({"embedder": "hashing"}, True, "dense.jsonl"),
+        ({"name": "before-plain-chunks"}, True, "before-plain-chunks.jsonl"),
+    ],
+)
+def test_other_runs_cannot_overwrite_the_submission_file(overrides, llm_available, expected):
+    path = output_path(_args(**overrides), "hybrid" if "retriever" in overrides else "dense", llm_available)
+    assert path == RESULTS_DIR / expected
+    assert path != EVAL_SET_FILE
 
 
 def test_runner_writes_the_required_fields(tmp_path):

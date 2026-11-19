@@ -10,6 +10,11 @@ v1 -> v2 during setup, exactly like a live update). Results never depend on
 whatever state a running server happens to be in.
 
 Output line format (fixed by the brief): id, input, expected, actual, pass, notes.
+
+`cases.jsonl` holds the questions and what a correct answer must contain. A
+plain run with an LLM writes the scored set, the file the brief asks for, to
+`results/eval_set.jsonl`. Retrieval-only runs and runs with a changed setting
+go to their own file so they can't overwrite it.
 """
 
 import argparse
@@ -29,6 +34,7 @@ from evaluation.scoring import score_case, summarise
 ROOT = Path(__file__).resolve().parent.parent
 CASES_FILE = ROOT / "evaluation" / "cases.jsonl"
 RESULTS_DIR = ROOT / "evaluation" / "results"
+EVAL_SET_FILE = RESULTS_DIR / "eval_set.jsonl"
 RATE_LIMIT_WAIT_S = 30
 RATE_LIMIT_ATTEMPTS = 3
 
@@ -81,6 +87,18 @@ def build_settings(args: argparse.Namespace, data_dir: Path) -> Settings:
     return Settings(**overrides)
 
 
+def output_path(args: argparse.Namespace, retriever: str, llm_available: bool) -> Path:
+    if args.out:
+        return Path(args.out)
+    if args.name:
+        return RESULTS_DIR / f"{args.name}.jsonl"
+    if not llm_available:
+        return RESULTS_DIR / "retrieval-only.jsonl"
+    if args.retriever or args.embedder or args.no_headers:
+        return RESULTS_DIR / f"{retriever}.jsonl"
+    return EVAL_SET_FILE
+
+
 def ask_with_backoff(container: Container, case: dict) -> tuple[AnswerResult, list[str]]:
     """Ask once; if the provider rate-limited us, wait and ask again.
 
@@ -106,7 +124,6 @@ def run(args: argparse.Namespace) -> dict:
         container = Container(settings)
         container.startup()
         llm_available = container.llm.name != "none"
-        label = args.name or settings.retriever
         print(
             f"evaluating {len(cases)} cases | retriever={container.retriever.name} "
             f"llm={container.llm.name} embedder={container.embedder.name}",
@@ -128,7 +145,7 @@ def run(args: argparse.Namespace) -> dict:
             if llm_available and actual["llm_calls"] and args.pace:
                 time.sleep(args.pace)
 
-    out = Path(args.out) if args.out else RESULTS_DIR / f"{label}.jsonl"
+    out = output_path(args, settings.retriever, llm_available)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as f:
         for row in rows:
