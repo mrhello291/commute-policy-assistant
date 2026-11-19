@@ -1,3 +1,4 @@
+import sqlite3
 import uuid
 from pathlib import Path
 
@@ -47,6 +48,25 @@ class StoreThatDiesHalfway(ChromaPolicyStore):
         raise OSError("disk full")
 
 
+class RegistryThatCannotSwitch(PolicyRegistry):
+    """The switch transaction fails, e.g. the database is locked."""
+
+    def activate(self, company_id, version):
+        raise sqlite3.OperationalError("database is locked")
+
+
+class RegistryThatGoesDown(RegistryThatCannotSwitch):
+    """The switch fails and so does recording the failure: the outcome can't be confirmed."""
+
+    def mark_failed(self, company_id, version, detail):
+        raise sqlite3.OperationalError("disk I/O error")
+
+
+class StoreThatCannotPrune(ChromaPolicyStore):
+    def delete_all_except(self, company_id, keep):
+        raise OSError("disk unavailable")
+
+
 @pytest.fixture
 def paths(tmp_path):
     return tmp_path / "registry.db", tmp_path / f"chroma-{uuid.uuid4().hex}"
@@ -56,6 +76,10 @@ def make_service(paths, embedder=None, store=None):
     registry = PolicyRegistry(paths[0])
     store = store or ChromaPolicyStore(paths[1])
     return IngestionService(registry, store, embedder or HashingEmbedder()), registry, store
+
+
+def as_version(text, version):
+    return text.replace("version: 2", f"version: {version}", 1)
 
 
 def versions_in_store(store, company="yamuna"):
@@ -227,3 +251,65 @@ def test_offboarding_removes_only_former_clients(paths):
     assert registry.active("yamuna").version == 2
     assert notified == ["gone"]
     assert service.offboard_all_except({"yamuna"}) == []
+
+
+def test_version_numbers_may_skip_but_never_go_back(paths):
+    service, registry, _ = make_service(paths)
+    service.ingest(YAMUNA_V2)
+    service.ingest(as_version(YAMUNA_V2, 7))
+    assert registry.active("yamuna").version == 7
+    with pytest.raises(VersionConflict):
+        service.ingest(as_version(YAMUNA_V2, 5))
+    assert registry.active("yamuna").version == 7
+
+
+def test_live_version_number_cannot_be_reused_for_different_text(paths):
+    service, registry, store = make_service(paths)
+    service.ingest(YAMUNA_V2)
+    with pytest.raises(VersionConflict):
+        service.ingest(YAMUNA_V2.replace("7:30 PM", "7:45 PM"))
+    texts = " ".join(c.text for c in store.chunks("yamuna", 2))
+    assert "7:30 PM" in texts and "7:45 PM" not in texts
+
+
+def test_failed_switch_keeps_old_version_live_and_removes_new_chunks(paths):
+    service, registry, store = make_service(paths)
+    service.ingest(YAMUNA_V1)
+    broken = IngestionService(RegistryThatCannotSwitch(paths[0]), store, HashingEmbedder())
+    with pytest.raises(IngestionFailed):
+        broken.ingest(YAMUNA_V2)
+    assert registry.active("yamuna").version == 1
+    assert registry.get("yamuna", 2).status == "failed"
+    assert versions_in_store(store) == {1}
+
+
+def test_failed_cleanup_after_the_switch_is_harmless(paths):
+    store = StoreThatCannotPrune(paths[1])
+    service, registry, _ = make_service(paths, store=store)
+    service.ingest(YAMUNA_V1)
+    service.ingest(YAMUNA_V2)
+    report = service.ingest(as_version(YAMUNA_V2, 3))
+    assert report.activated and registry.active("yamuna").version == 3
+    assert versions_in_store(store) == {1, 2, 3}  # v1 should have gone but couldn't
+    hits = DenseRetriever(store, HashingEmbedder()).retrieve("yamuna", 3, "escort for night drops", 10)
+    assert hits and {h.chunk.version for h in hits} == {3}
+
+    restarted, _, clean_store = make_service(paths)
+    restarted.reconcile()
+    assert versions_in_store(clean_store) == {3}
+
+
+def test_chunks_are_kept_for_reconcile_when_the_outcome_is_unknown(paths):
+    """If the registry can't confirm the new version isn't live, its chunks must not be deleted."""
+    service, registry, store = make_service(paths)
+    service.ingest(YAMUNA_V1)
+    broken = IngestionService(RegistryThatGoesDown(paths[0]), store, HashingEmbedder())
+    with pytest.raises(IngestionFailed):
+        broken.ingest(YAMUNA_V2)
+    assert registry.active("yamuna").version == 1
+    assert versions_in_store(store) == {1, 2}
+
+    restarted, registry, store = make_service(paths)
+    assert restarted.reconcile().interrupted_versions == [("yamuna", 2)]
+    assert registry.active("yamuna").version == 1
+    assert versions_in_store(store) == {1}

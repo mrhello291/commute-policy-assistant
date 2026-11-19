@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from app.errors import PolicyFormatError
-from app.policies.parser import MarkdownPolicyParser
+from app.policies.parser import MAX_DOCUMENT_BYTES, MarkdownPolicyParser
 
 POLICY_DIR = Path(__file__).resolve().parent.parent / "data" / "policies"
 
@@ -77,6 +77,23 @@ def test_checksum_changes_with_content():
 def test_rejects_malformed_documents(text, reason):
     with pytest.raises(PolicyFormatError, match=reason):
         parse(text)
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "2.5", "'3'", "v3", "true"])
+def test_version_must_be_a_positive_whole_number(value):
+    """The version is printed in every citation, so nothing is guessed from a near miss."""
+    with pytest.raises(PolicyFormatError, match="positive whole number"):
+        parse(HEADER.replace("version: 3", f"version: {value}") + "## 1. A\n\nx\n")
+
+
+def test_effective_from_must_be_a_date():
+    with pytest.raises(PolicyFormatError, match="effective_from"):
+        parse(HEADER.replace("2026-02-01", "next month") + "## 1. A\n\nx\n")
+
+
+def test_oversized_document_is_refused_before_parsing():
+    with pytest.raises(PolicyFormatError, match="larger than"):
+        parse(HEADER + "## 1. A\n\n" + "x" * MAX_DOCUMENT_BYTES)
 
 
 @pytest.mark.parametrize("path", sorted(POLICY_DIR.glob("*/v*.md")), ids=lambda p: f"{p.parent.name}/{p.name}")

@@ -318,10 +318,17 @@ that writes half a batch and then raises "disk full".
 | Embedder fails mid-ingest: v1 still live, v2 `failed`, only v1 chunks in Chroma | `test_failed_embedding_keeps_old_version_live` |
 | Chroma writes half the batch then fails: v1 still live, no v2 chunks left | `test_crash_halfway_through_writing_chunks_keeps_old_version_live` |
 | Process dies after writing chunks, before the switch: restart marks v2 failed and removes its chunks | `test_reconcile_cleans_up_after_a_process_crash` |
+| The switch transaction itself fails: v1 still live, v2 `failed`, its chunks removed | `test_failed_switch_keeps_old_version_live_and_removes_new_chunks` |
+| Cleanup after the switch fails: still activated, only v3 is retrieved, restart removes the leftovers | `test_failed_cleanup_after_the_switch_is_harmless` |
+| The failure can't even be recorded: v2's chunks are kept, not guessed about, and restart cleans them | `test_chunks_are_kept_for_reconcile_when_the_outcome_is_unknown` |
 | A malformed document writes nothing to either store | `test_bad_document_writes_nothing` |
 | A failed version can be retried and then goes live | `test_failed_version_can_be_retried` (ingestion and registry) |
 | Re-uploading the live version is a no-op | `test_reingesting_the_live_version_is_a_no_op` |
 | Older versions are refused | `test_older_version_is_refused`, `test_registry.py::test_versions_only_move_forward` |
+| Version numbers may skip (v2 → v7) but never go back, and a live number can't be reused for different text | `test_version_numbers_may_skip_but_never_go_back`, `test_live_version_number_cannot_be_reused_for_different_text` |
+| `version` must be a positive whole number (`0`, `2.5`, `'3'`, `v3`, `true` refused) | `test_parser.py::test_version_must_be_a_positive_whole_number` |
+| Through the API, a question after an upload is answered and cited from the new version only | `test_api_policies.py::test_after_an_upload_only_the_new_version_answers` |
+| A new client: directory entry, admin uploads v1, employees get answers, other clients see it as another company | `test_api_policies.py::test_a_new_client_is_onboarded_with_a_directory_entry_and_a_first_upload` |
 | A staged version isn't live until activated | `test_registry.py::test_staged_version_is_not_live_until_activated` |
 | The database itself refuses two active versions | `test_registry.py::test_database_refuses_two_active_versions` |
 | A query only ever sees the requested version | `test_vector_store.py::test_query_only_sees_requested_version` |
