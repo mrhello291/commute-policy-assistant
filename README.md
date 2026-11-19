@@ -26,8 +26,12 @@ Without an API key the service still starts. Retrieval works, and questions get 
 | What | Command |
 |---|---|
 | Tests (no network or key needed) | `docker compose run --rm app pytest` |
-| Evaluation set (uses the LLM from `.env`, about 6 min because it's paced for free-tier limits) | `docker compose run --rm app python -m evaluation.run` |
-| Evaluation without a key (retrieval only) | `docker compose run --rm app python -m evaluation.run --llm none` |
+| Evaluation set (uses the LLM from `.env`, about 6 min because it's paced for free-tier limits). Writes `evaluation/results/eval_set.jsonl` | `docker compose run --rm app python -m evaluation.run` |
+| Evaluation without a key (retrieval only). Writes `evaluation/results/retrieval-only.jsonl` | `docker compose run --rm app python -m evaluation.run --llm none` |
+
+**The evaluation set in the brief's format** (`id, input, expected, actual, pass, notes`) is
+[`evaluation/results/eval_set.jsonl`](evaluation/results/eval_set.jsonl), the scored run of the
+shipped configuration. `evaluation/cases.jsonl` is the runner's input (questions and expected facts).
 | Latency benchmark (server must be up) | `python scripts/bench.py` |
 
 To run without Docker you need Python 3.11+: `pip install -e ".[dev]"`, then `uvicorn app.main:serve --factory`.
@@ -421,7 +425,7 @@ app/
   container.py   builds the object graph (no DI framework)
 data/policies/   three companies' policies (Yamuna has v1 and v2)
 data/employees.json  mock HR directory: 3–4 employees per company, one policy admin each
-evaluation/      cases.jsonl, scoring, runner, results/
+evaluation/      cases.jsonl (questions), scoring, runner, results/eval_set.jsonl (scored set)
 tests/           ~380 tests, no network
 scripts/bench.py latency against a running server
 docs/EVALUATION.md  evaluation report

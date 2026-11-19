@@ -8,14 +8,21 @@ improvement (contextual section headers) raised the pass rate from 88% to 98% on
 [POLICY_DATA.md](POLICY_DATA.md)), and 15 cases were added for them.
 
 Measured on 2026-11-18 on a laptop (12 cores, no GPU), with Groq's free tier (`openai/gpt-oss-20b`) and
-local MiniLM embeddings. The raw results are in `evaluation/results/*.jsonl`, one line per case with the
-fields `id, input, expected, actual, pass, notes`.
+local MiniLM embeddings.
+
+**The evaluation set in the required format is
+[`evaluation/results/eval_set.jsonl`](../evaluation/results/eval_set.jsonl)**: one line per case with
+the fields `id, input, expected, actual, pass, notes`, from the shipped configuration. Its totals are in
+`eval_set.summary.json`. `python -m evaluation.run` regenerates both. The other files in
+`evaluation/results/` are the before/after and experiment runs, in the same format.
+`evaluation/cases.jsonl` is the input to the runner: the questions and what a correct answer must
+contain, without `actual` or `pass`.
 
 ---
 
 ## 1. Test scenarios
 
-### Evaluation set: `evaluation/cases.jsonl`, 58 cases
+### Evaluation set: 58 cases (questions in `evaluation/cases.jsonl`, scored in `evaluation/results/eval_set.jsonl`)
 
 | Category | Cases | What it checks |
 |---|---|---|
@@ -180,8 +187,8 @@ the budget. That's an unplanned but real test of the quota-failure path.
 The three policies were rebuilt after researching real transport policies (service area, registration,
 pickup wait, address changes, consent, the escort fallback, safety and review sections; see
 [POLICY_DATA.md](POLICY_DATA.md)). Section numbers and headline rules were kept, so the 43 verified cases
-still apply, and **15 new cases** were written for the new clauses *before* they were run. Results are in
-`evaluation/results/after-policy-rebuild.*`.
+still apply, and **15 new cases** were written for the new clauses *before* they were run. This run is
+the submitted evaluation set, `evaluation/results/eval_set.*`.
 
 | | Original policies (§3.1) | **Rebuilt policies (as shipped)** |
 |---|---|---|
