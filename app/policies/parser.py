@@ -25,6 +25,37 @@ _NUMBERED = re.compile(r"^(\d+(?:\.\d+)*)\.?\s+(.+)$")
 _REQUIRED_FIELDS = ("company_id", "company_name", "doc_id", "title", "version", "effective_from")
 
 
+def validate_metadata(meta: dict) -> dict:
+    """Check a document's identifying fields, whatever format they came from.
+
+    Returns the six required fields, cleaned. The company, version and date
+    decide which answers a document can produce, so nothing here is guessed:
+    a value that isn't exactly right is refused with the reason.
+    """
+    missing = [f for f in _REQUIRED_FIELDS if meta.get(f) in (None, "")]
+    if missing:
+        raise PolicyFormatError(f"front matter is missing: {', '.join(missing)}")
+
+    company_id = str(meta["company_id"])
+    if not _COMPANY_ID.match(company_id):
+        raise PolicyFormatError("company_id must be 2-40 lowercase letters, digits, '-' or '_'")
+    version = meta["version"]
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise PolicyFormatError("version must be a positive whole number")
+    effective_from = meta["effective_from"]
+    if not isinstance(effective_from, date):
+        raise PolicyFormatError("effective_from must be a date like 2026-01-31")
+
+    return {
+        "company_id": company_id,
+        "company_name": str(meta["company_name"]).strip(),
+        "doc_id": str(meta["doc_id"]).strip(),
+        "title": str(meta["title"]).strip(),
+        "version": version,
+        "effective_from": effective_from,
+    }
+
+
 class MarkdownPolicyParser:
     def parse(self, raw: str) -> PolicyDocument:
         if not raw or not raw.strip():
@@ -60,29 +91,7 @@ class MarkdownPolicyParser:
         if not isinstance(meta, dict):
             raise PolicyFormatError("front matter must be a set of key: value lines")
 
-        missing = [f for f in _REQUIRED_FIELDS if meta.get(f) in (None, "")]
-        if missing:
-            raise PolicyFormatError(f"front matter is missing: {', '.join(missing)}")
-
-        company_id = str(meta["company_id"])
-        if not _COMPANY_ID.match(company_id):
-            raise PolicyFormatError("company_id must be 2-40 lowercase letters, digits, '-' or '_'")
-        version = meta["version"]
-        if not isinstance(version, int) or isinstance(version, bool) or version < 1:
-            raise PolicyFormatError("version must be a positive whole number")
-        effective_from = meta["effective_from"]
-        if not isinstance(effective_from, date):
-            raise PolicyFormatError("effective_from must be a date like 2026-01-31")
-
-        clean = {
-            "company_id": company_id,
-            "company_name": str(meta["company_name"]).strip(),
-            "doc_id": str(meta["doc_id"]).strip(),
-            "title": str(meta["title"]).strip(),
-            "version": version,
-            "effective_from": effective_from,
-        }
-        return clean, raw[match.end() :]
+        return validate_metadata(meta), raw[match.end() :]
 
     # -- sections ---------------------------------------------------------
 
