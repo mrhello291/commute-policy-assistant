@@ -15,10 +15,18 @@ A case passes when every check that applies to it passes:
              excerpt and page numbers (see citation_check.py; checked when the
              runner has the source PDFs)
 - isolation  every retrieved chunk belongs to the caller's company
+- live_version  every retrieved chunk and every citation is from the
+             company's newest policy version (the highest version among the
+             policy files loaded), and that is the version the service
+             reports as live
 - budget     at most 2 LLM calls and at most 3 citations
 
-Retrieval quality (hit@1, hit@3, MRR against the gold sections) is reported
-separately; it explains failures but is not itself a pass condition.
+Retrieval quality is reported separately; it explains failures but is not
+itself a pass condition. Against each case's gold sections: hit@1 and hit@3
+(was a gold section ranked first / in the top 3), MRR, recall@3 (share of
+the gold sections in the top 3) and precision@3 (share of the top 3 that are
+gold). It also reports what the evidence gate did: answerable questions it
+wrongly stopped, and uncovered ones it stopped before any LLM call.
 """
 
 import math
@@ -50,8 +58,19 @@ def first_gold_rank(gold: list[str], retrieved_sections: list[str]) -> int | Non
     return None
 
 
-def score_case(case: dict, actual: dict, llm_available: bool = True, citations=None) -> CaseScore:
-    """`citations` is a CitationReport from citation_check, when the source PDFs are at hand."""
+def score_case(
+    case: dict,
+    actual: dict,
+    llm_available: bool = True,
+    citations=None,
+    live_versions: dict[str, int] | None = None,
+) -> CaseScore:
+    """Score one case.
+
+    `citations` is a CitationReport from citation_check, when the source PDFs
+    are at hand. `live_versions` maps each company to its newest loaded
+    version; with it, the live_version check runs.
+    """
     expected = case["expected"]
     company = case["company"]
     answer = actual.get("answer", "")
@@ -62,6 +81,11 @@ def score_case(case: dict, actual: dict, llm_available: bool = True, citations=N
     rank = first_gold_rank(gold, actual.get("retrieved_sections", [])) if gold else None
 
     checks["isolation"] = all(cid.startswith(f"{company}:") for cid in actual.get("retrieved_chunk_ids", []))
+    if live_versions and company in live_versions:
+        stale = _stale_versions(actual, live_versions[company])
+        checks["live_version"] = not stale
+        notes.extend(stale)
+
     checks["budget"] = actual.get("llm_calls", 0) <= MAX_LLM_CALLS and len(actual.get("citations", [])) <= MAX_CITATIONS
     checks["no_leak"] = True
     for pattern in expected["must_not_include"]:
@@ -105,6 +129,95 @@ def score_case(case: dict, actual: dict, llm_available: bool = True, citations=N
     return CaseScore(all(checks.values()), checks, notes, rank)
 
 
+def _chunk_version(chunk_id: str) -> int | None:
+    """Chunk ids are `company:doc:v<N>:section:part`."""
+    parts = chunk_id.split(":")
+    if len(parts) > 2 and parts[2].startswith("v") and parts[2][1:].isdigit():
+        return int(parts[2][1:])
+    return None
+
+
+def _stale_versions(actual: dict, live: int) -> list[str]:
+    problems = []
+    reported = actual.get("policy_version")
+    if reported is not None and reported != live:
+        problems.append(f"service answered from v{reported}, newest loaded is v{live}")
+    old_chunks = sorted({v for cid in actual.get("retrieved_chunk_ids", []) if (v := _chunk_version(cid)) != live})
+    if old_chunks:
+        problems.append(f"retrieved chunks from {['v' + str(v) for v in old_chunks]}, newest is v{live}")
+    old_cites = sorted({c["version"] for c in actual.get("citations", []) if c.get("version", live) != live})
+    if old_cites:
+        problems.append(f"cited {['v' + str(v) for v in old_cites]}, newest is v{live}")
+    return problems
+
+
+def _retrieval_summary(rows: list[dict]) -> dict:
+    """How well retrieval found the gold sections, over the cases that have any."""
+    with_gold = [row for row in rows if row["case"]["expected"]["sections"]]
+    n = len(with_gold)
+    ranks = [row["score"].first_gold_rank for row in with_gold]
+    recalls, precisions, ceilings = [], [], []
+    for row in with_gold:
+        gold = set(row["case"]["expected"]["sections"])
+        retrieved = row["actual"].get("retrieved_sections", [])
+        recalls.append(len(gold & set(retrieved)) / len(gold))
+        precisions.append(sum(s in gold for s in retrieved) / len(retrieved) if retrieved else 0.0)
+        # With one gold section and three retrieved, a perfect retriever still scores 1/3.
+        ceilings.append(min(len(gold), len(retrieved)) / len(retrieved) if retrieved else 0.0)
+
+    def rate(values) -> float | None:
+        return round(sum(values) / n, 3) if n else None
+
+    gated = [row for row in rows if row["actual"].get("failure") == "below_evidence_threshold"]
+    uncovered = [row for row in rows if row["case"]["expected"]["status"] == "not_covered"]
+    return {
+        "cases_with_gold": n,
+        "gold_first": sum(1 for r in ranks if r == 1),
+        "gold_in_top_3": sum(1 for r in ranks if r is not None),
+        "hit_at_1": rate([r == 1 for r in ranks]),
+        "hit_at_3": rate([r is not None for r in ranks]),
+        "mrr": rate([1 / r if r else 0 for r in ranks]),
+        "recall_at_3": rate(recalls),
+        "precision_at_3": rate(precisions),
+        "precision_at_3_best_possible": rate(ceilings),
+        "missed": [row["case"]["id"] for row, r in zip(with_gold, ranks, strict=True) if r is None],
+        "evidence_gate": {
+            "answerable_stopped": [
+                row["case"]["id"] for row in gated if row["case"]["expected"]["status"] == "answered"
+            ],
+            "not_covered_stopped": sum(
+                1 for row in uncovered if row["actual"].get("failure") == "below_evidence_threshold"
+            ),
+            "not_covered_cases": len(uncovered),
+        },
+    }
+
+
+def _requirements(rows: list[dict]) -> dict:
+    """The properties every run must keep, counted case by case."""
+
+    def held(check: str) -> dict:
+        judged = [row for row in rows if check in row["score"].checks]
+        return {"held": sum(row["score"].checks[check] for row in judged), "cases": len(judged)}
+
+    answered = [row for row in rows if row["actual"].get("status") == "answered"]
+    refused = [row for row in rows if row["case"]["expected"]["status"] == "other_company"]
+    return {
+        "own_company_only": held("isolation"),
+        "other_company_refused": {
+            "held": sum(row["actual"].get("status") == "other_company" for row in refused),
+            "cases": len(refused),
+        },
+        "answers_with_citation": {
+            "held": sum(bool(row["actual"].get("citations")) for row in answered),
+            "cases": len(answered),
+        },
+        "citations_match_pdf": held("citation_valid"),
+        "newest_version_only": held("live_version"),
+        "no_forbidden_text": held("no_leak"),
+    }
+
+
 def percentile(values: list[float], pct: float) -> float | None:
     """Nearest-rank percentile: the smallest value with at least pct% of values at or below it."""
     if not values:
@@ -120,7 +233,6 @@ def summarise(rows: list[dict]) -> dict:
     for row in rows:
         by_category[row["case"]["category"]].append(row["score"].passed)
 
-    ranked = [row["score"].first_gold_rank for row in rows if row["case"]["expected"]["sections"]]
     calls = [row["actual"]["llm_calls"] for row in rows]
     latencies = [row["actual"]["latency_ms"] for row in rows]
     leaks = sum(
@@ -146,12 +258,8 @@ def summarise(rows: list[dict]) -> dict:
         "by_category": {
             name: {"passed": sum(results), "cases": len(results)} for name, results in sorted(by_category.items())
         },
-        "retrieval": {
-            "cases_with_gold": len(ranked),
-            "hit_at_1": round(sum(1 for r in ranked if r == 1) / len(ranked), 3) if ranked else None,
-            "hit_at_3": round(sum(1 for r in ranked if r is not None) / len(ranked), 3) if ranked else None,
-            "mrr": round(sum(1 / r for r in ranked if r) / len(ranked), 3) if ranked else None,
-        },
+        "requirements": _requirements(rows),
+        "retrieval": _retrieval_summary(rows),
         "citations": citation_summary,
         "leaks": leaks,
         "llm_calls": {"max": max(calls, default=0), "mean": round(statistics.mean(calls), 2) if calls else 0},
