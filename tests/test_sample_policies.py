@@ -8,7 +8,7 @@ would prove nothing about it.
 
 import re
 
-from app.policies.parser import MarkdownPolicyParser
+from app.policies.pdf_parser import PdfPolicyParser
 from tests.conftest import POLICY_DIR
 
 COMPANIES = ["yamuna", "gomti", "medhavi"]
@@ -16,9 +16,9 @@ TIME = re.compile(r"after (\d{1,2}:\d{2} [AP]M)")
 
 
 def section(company: str, title: str, version: int | None = None):
-    files = sorted((POLICY_DIR / company).glob("v*.md"), key=lambda p: int(p.stem[1:]))
-    path = POLICY_DIR / company / f"v{version}.md" if version else files[-1]
-    doc = MarkdownPolicyParser().parse(path.read_text())
+    files = sorted((POLICY_DIR / company).glob("v*.pdf"), key=lambda p: int(p.stem[1:]))
+    path = POLICY_DIR / company / f"v{version}.pdf" if version else files[-1]
+    doc = PdfPolicyParser().parse(path.read_bytes())
     [match] = [s for s in doc.sections if s.title == title]
     return match.body
 

@@ -26,6 +26,13 @@ Where these rules come from, and the real policies and templates they were model
 
 ## Format
 
-Each file is Markdown with a front-matter header (`company_id`, `company_name`, `doc_id`, `title`,
-`version`, `effective_from`) followed by numbered `##` and `###` headings. The heading numbers are
-what answers cite, so they must be unique within a document.
+The policies ship as PDFs, laid out the way HR policy documents usually are: a title, a
+document-control table (Company, Company ID, Document ID, Version, Effective from), bold numbered
+headings, and a running header and "Page X of Y" footer. The version number comes from the table, not
+the file name; `v1.pdf`, `v2.pdf` only set the order the seeder loads them in. Section numbers are what
+answers cite, so they must be unique within a document.
+
+They are generated from the Markdown in [`data/archive/markdown-policies/`](../archive/markdown-policies)
+(front matter plus numbered `##`/`###` headings), which was the upload format before PDF. To change a
+sample policy, edit its Markdown and run `python scripts/make_policy_pdfs.py`. The output is
+reproducible, so unchanged sources give byte-identical PDFs.

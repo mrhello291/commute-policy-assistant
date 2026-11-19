@@ -4,7 +4,7 @@ from app.answering.service import AnswerStatus
 from app.auth import Principal, Role
 from app.config import Settings
 from app.container import Container
-from tests.conftest import POLICY_DIR
+from tests.conftest import MARKDOWN_DIR, POLICY_DIR
 
 
 def test_startup_loads_newest_version_of_each_company(settings: Settings):
@@ -31,7 +31,7 @@ def test_missing_seed_directory_is_not_fatal(settings: Settings, tmp_path):
 
 def _former_client_policy() -> str:
     """Yamuna's v1 relabelled as a company that is not in the directory."""
-    text = (POLICY_DIR / "yamuna" / "v1.md").read_text()
+    text = (MARKDOWN_DIR / "yamuna" / "v1.md").read_text()
     return text.replace("company_id: yamuna", "company_id: arcadia").replace(
         "company_name: Yamuna Software Services", "company_name: Arcadia Systems"
     )

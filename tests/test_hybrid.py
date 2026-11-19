@@ -59,10 +59,10 @@ def test_hybrid_finds_keyword_match_and_stays_in_tenant(container):
 
 
 def test_bm25_index_follows_new_versions(container, settings):
-    from tests.conftest import POLICY_DIR
+    from tests.conftest import MARKDOWN_DIR
 
     v3 = (
-        (POLICY_DIR / "yamuna" / "v2.md")
+        (MARKDOWN_DIR / "yamuna" / "v2.md")
         .read_text()
         .replace("version: 2", "version: 3")
         .replace("Guests must make their", "Pets and guests must make their")

@@ -9,6 +9,8 @@ from app.main import create_app
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 POLICY_DIR = DATA_DIR / "policies"
+# The Markdown the sample PDFs were made from, for tests that need to edit a policy's text.
+MARKDOWN_DIR = DATA_DIR / "archive" / "markdown-policies"
 
 
 def make_settings(data_dir: Path) -> Settings:

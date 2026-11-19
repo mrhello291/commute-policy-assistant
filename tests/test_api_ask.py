@@ -1,7 +1,6 @@
 """The /v1/ask endpoint end to end, with a scripted LLM."""
 
 import json
-import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +9,7 @@ from app.container import Container
 from app.llm.base import LLMTimeout
 from app.llm.fake import ScriptedLLM
 from app.main import create_app
+from app.policies.pdf_parser import PdfPolicyParser
 from tests.conftest import POLICY_DIR
 from tests.helpers import auth
 
@@ -97,11 +97,11 @@ def test_every_citation_can_be_found_in_the_policy_document(make_client):
     client, _ = make_client([json.dumps({"verdict": "answered", "answer": "Yes.", "citations": ["S1", "S2", "S3"]})])
     body = client.post("/v1/ask", json={"question": "Do I get an escort?"}, headers=auth(client)).json()
 
-    source = (POLICY_DIR / "yamuna" / f"v{body['policy']['version']}.md").read_text()
-    flat = " ".join(source.split())
+    source = PdfPolicyParser().parse((POLICY_DIR / "yamuna" / f"v{body['policy']['version']}.pdf").read_bytes())
+    sections = {s.section_id: s for s in source.sections}
     assert 1 <= len(body["citations"]) <= 3
     for citation in body["citations"]:
-        assert f"title: {citation['document']}" in source
-        heading = rf"^#{{2,3}} {re.escape(citation['section'])}\.? {re.escape(citation['title'])}$"
-        assert re.search(heading, source, re.MULTILINE), citation
-        assert citation["excerpt"].removesuffix("…") in flat
+        assert citation["document"] == source.title
+        section = sections[citation["section"]]
+        assert section.title == citation["title"], citation
+        assert citation["excerpt"].removesuffix("…") in " ".join(section.body.split())

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from app.policies.parser import MarkdownPolicyParser
+from app.policies.pdf_parser import PdfPolicyParser
 from tests.conftest import POLICY_DIR
 
 CASES_FILE = Path(__file__).resolve().parent.parent / "evaluation" / "cases.jsonl"
@@ -14,8 +14,8 @@ CASES = [json.loads(line) for line in CASES_FILE.read_text().splitlines() if lin
 
 
 def live_sections(company: str) -> dict[str, str]:
-    latest = max((POLICY_DIR / company).glob("v*.md"), key=lambda p: int(p.stem[1:]))
-    doc = MarkdownPolicyParser().parse(latest.read_text())
+    latest = max((POLICY_DIR / company).glob("v*.pdf"), key=lambda p: int(p.stem[1:]))
+    doc = PdfPolicyParser().parse(latest.read_bytes())
     return {s.section_id: s.body for s in doc.sections}
 
 

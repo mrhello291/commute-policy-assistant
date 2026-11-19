@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from app.policies.chunker import SectionChunker
-from app.policies.parser import MarkdownPolicyParser
+from app.policies.pdf_parser import PdfPolicyParser
 from app.policies.scanner import InjectionScanner
 
 POLICY_DIR = Path(__file__).resolve().parent.parent / "data" / "policies"
@@ -37,7 +37,7 @@ def test_ordinary_policy_text_is_clean(text):
 
 def test_only_the_planted_medhavi_section_is_flagged():
     flagged = {}
-    for path in sorted(POLICY_DIR.glob("*/v1.md")):
-        chunks = InjectionScanner().flag(SectionChunker().chunk(MarkdownPolicyParser().parse(path.read_text())))
+    for path in sorted(POLICY_DIR.glob("*/v1.pdf")):
+        chunks = InjectionScanner().flag(SectionChunker().chunk(PdfPolicyParser().parse(path.read_bytes())))
         flagged.update({c.chunk_id: c.flags for c in chunks if c.flags})
     assert list(flagged) == ["medhavi:medhavi-staff-transport-policy:v1:9:0"]

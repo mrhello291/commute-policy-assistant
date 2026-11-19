@@ -13,9 +13,9 @@ from app.retrieval.embeddings import HashingEmbedder
 from app.retrieval.retriever import DenseRetriever
 from app.retrieval.vector_store import ChromaPolicyStore
 
-POLICY_DIR = Path(__file__).resolve().parent.parent / "data" / "policies"
-YAMUNA_V1 = (POLICY_DIR / "yamuna" / "v1.md").read_text()
-YAMUNA_V2 = (POLICY_DIR / "yamuna" / "v2.md").read_text()
+MARKDOWN_DIR = Path(__file__).resolve().parent.parent / "data" / "archive" / "markdown-policies"
+YAMUNA_V1 = (MARKDOWN_DIR / "yamuna" / "v1.md").read_text()
+YAMUNA_V2 = (MARKDOWN_DIR / "yamuna" / "v2.md").read_text()
 
 
 class FlakyEmbedder(HashingEmbedder):

@@ -6,10 +6,10 @@ from fastapi.testclient import TestClient
 from app.container import Container
 from app.llm.fake import ScriptedLLM
 from app.main import create_app
-from tests.conftest import DATA_DIR, POLICY_DIR, make_settings
+from tests.conftest import DATA_DIR, MARKDOWN_DIR, make_settings
 from tests.helpers import auth, login
 
-YAMUNA_V2 = (POLICY_DIR / "yamuna" / "v2.md").read_text()
+YAMUNA_V2 = (MARKDOWN_DIR / "yamuna" / "v2.md").read_text()
 
 
 def yamuna_v3():
@@ -47,7 +47,7 @@ def test_admin_cannot_upload_for_another_company(client):
 
 
 def test_old_version_upload_is_a_conflict(client):
-    old = (POLICY_DIR / "yamuna" / "v1.md").read_text()
+    old = (MARKDOWN_DIR / "yamuna" / "v1.md").read_text()
     response = client.post("/v1/policies", json={"content": old}, headers=auth(client, role="policy_admin"))
     assert response.status_code == 409
     assert "Nothing was changed" in response.json()["message"]

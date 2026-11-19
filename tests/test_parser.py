@@ -6,7 +6,7 @@ import pytest
 from app.errors import PolicyFormatError
 from app.policies.parser import MAX_DOCUMENT_BYTES, MarkdownPolicyParser
 
-POLICY_DIR = Path(__file__).resolve().parent.parent / "data" / "policies"
+MARKDOWN_DIR = Path(__file__).resolve().parent.parent / "data" / "archive" / "markdown-policies"
 
 HEADER = """---
 company_id: acme
@@ -96,7 +96,7 @@ def test_oversized_document_is_refused_before_parsing():
         parse(HEADER + "## 1. A\n\n" + "x" * MAX_DOCUMENT_BYTES)
 
 
-@pytest.mark.parametrize("path", sorted(POLICY_DIR.glob("*/v*.md")), ids=lambda p: f"{p.parent.name}/{p.name}")
+@pytest.mark.parametrize("path", sorted(MARKDOWN_DIR.glob("*/v*.md")), ids=lambda p: f"{p.parent.name}/{p.name}")
 def test_sample_policies_parse(path):
     doc = parse(path.read_text())
     assert doc.company_id == path.parent.name
