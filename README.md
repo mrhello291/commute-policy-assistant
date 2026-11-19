@@ -123,6 +123,66 @@ Sign-in errors have the same `{status, message, request_id}` shape:
 | 401 | `unauthorized` | Missing, forged, expired, logged-out or superseded token, or the employee has since left or changed role |
 | 503 | `auth_unavailable` | The token store can't be read. Requests fail closed, with `Retry-After` |
 
+### Trying ingestion: a new version, or a new client company
+
+`POST /v1/policies` loads both a new version of an existing policy and a new company's first policy.
+The only check on the company is that the uploader is a `policy_admin` of the company named in the
+document's front matter, and the directory is where that admin comes from.
+
+**A new version for an existing company.** Sign in as `YAM-1004`, take `data/policies/yamuna/v2.md`,
+change `version: 2` to `version: 3` and a rule or two, and upload it. Questions now cite v3 only. An
+older version number gets a 409 and changes nothing.
+
+The version is the `version:` line in the document's front matter, a plain whole number (`3`, not
+`v3`). The API ignores file names. In the seed folder, the `v<N>.md` names only set the loading order.
+Every mistake is refused before anything is stored, and the live version keeps answering:
+
+| Uploaded | Result |
+|---|---|
+| A higher version (gaps allowed, v2 → v7) | 200, activated |
+| The live version again, unchanged | 200, `already active`, nothing done |
+| The live version number with edited text, or a lower number | 409 `version_conflict`: "Upload a document with a higher version number. Nothing was changed." |
+| `version:` missing, or `v3`, `'3'`, `2.5`, `0` | 422 `invalid_policy`, naming the problem |
+| A heading without a section number, text before the first section, a duplicate section | 422 `invalid_policy` |
+
+**A new client company.** There's no registration endpoint, by design: a client exists because its HR
+system lists employees for it, and here `data/employees.json` stands in for that system. So onboarding
+is two steps, with no restart:
+
+1. Add the company to `data/employees.json` with at least one `policy_admin` (and an employee to ask
+   questions as). The running service picks up the edit on the next request.
+
+   ```json
+   {
+     "company_id": "kaveri",
+     "company_name": "Kaveri Textiles",
+     "employees": [
+       {"employee_id": "KAV-4001", "name": "Asha Pillai", "role": "employee"},
+       {"employee_id": "KAV-4002", "name": "Ravi Menon", "role": "policy_admin"}
+     ]
+   }
+   ```
+
+2. Sign in as that admin and upload the policy. Its front matter must name the same `company_id`.
+
+   ```bash
+   ADMIN=$(curl -s -XPOST localhost:8000/v1/auth/login -H 'content-type: application/json' \
+     -d '{"company_id":"kaveri","employee_id":"KAV-4002"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')
+
+   python3 -c 'import sys,json;print(json.dumps({"content":open(sys.argv[1]).read()}))' kaveri-v1.md |
+     curl -s -XPOST localhost:8000/v1/policies -H "authorization: Bearer $ADMIN" \
+       -H 'content-type: application/json' -d @-
+   # {"company_id":"kaveri","version":1,"activated":true,"previous_version":null,...}
+   ```
+
+   `kaveri-v1.md` follows the format of the sample policies: front matter (`company_id`,
+   `company_name`, `doc_id`, `title`, `version`, `effective_from`), then numbered `##` sections.
+
+Sign in as `KAV-4001` and the assistant answers from Kaveri's policy only. Before step 1, the same
+sign-in is refused with `unknown_company`, so no one can create a tenant just by uploading a document.
+Removing a company from the directory locks its employees out on the next request. Its policy is
+deleted at the next startup (see [Sign-in](#2-sign-in-a-mock-directory-a-fresh-token-per-login-every-token-revocable)).
+
 ---
 
 ## How it works
@@ -272,6 +332,19 @@ The contradictions at a glance (full table in the doc):
   stray chunks.
 - Versions only move forward, so an old document can't be re-activated by mistake. Each request reads the
   live version once, so an upload mid-request can't mix two versions in one answer.
+- **The admin sets the version number, not the server.** Every citation shows it, so it has to match the
+  copy HR circulated. If the server numbered uploads itself, an answer could cite "v4" while the
+  employee's PDF says v3. It also makes uploads safe to repeat: sending the same file twice is a no-op,
+  not a new version.
+- **A changed document can't reuse a live number.** Same number and same text (checked by SHA-256) is a
+  retry and does nothing. Same number with different text is a 409, so two different documents can never
+  both be "v2" and a citation always points to one text.
+- **Gaps are allowed.** Drafts that never went live leave holes in real version numbering, so v2 → v7 is
+  accepted. The only rule is "newer than anything that was ever live", which is what blocks a rollback
+  by mistake. A deliberate rollback is re-uploading the old text under a new number.
+- **The parser is strict and checks the whole document first.** A missing or non-integer version, or a
+  heading without a section number, is refused with the reason, before anything is written. Being lenient
+  here would mean guessing a version or a section, and a guessed section is a citation nobody can check.
 
 ### 4. Grounding and "the policy does not say"
 - Two layers. A **retrieval evidence gate** in code answers "not covered" with no LLM call when nothing
