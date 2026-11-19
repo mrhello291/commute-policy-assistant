@@ -36,46 +36,42 @@ version at all if it never had one.**
 
 ## 2. The architecture
 
-```
-  POST /v1/policies                         startup (lifespan, before any request is served)
-  policy_admin token ─► acting_company      offboard former clients ─► reconcile() ─► seed data/policies/*/v*.md
-           │                                                                               │
-           └─────────────────────────┬─────────────────────────────────────────────────────┘
-                                     ▼
- ┌─────────────────────────── IngestionService.ingest(raw, acting_company) ───────────────────────────┐
- │                                                                                                     │
- │  MarkdownPolicyParser ── whole document validated in memory: front matter, version, numbered        │
- │        │                 sections, SHA-256 checksum. Nothing is written yet.                        │
- │        ▼                                                                                            │
- │  company in document == company in token?  (no ─► 403)                                              │
- │        │                                                                                            │
- │  ══════╪═══════ one lock for all uploads (threading.Lock) ════════════════════════════════════      │
- │        ▼                                                                                            │
- │  same version + same checksum already live? ──yes──► "already active", nothing done                │
- │        │                                                                                            │
- │        ▼                                                                                            │
- │  registry.begin()        ─────────────────────────────────────────────►  ┌───────────────────────┐ │
- │        │   newer than anything ever live? else 409; row = staging         │ SQLite  registry.db   │ │
- │        ▼                                                                  │ policy_versions       │ │
- │  SectionChunker ─► InjectionScanner ─► Embedder (MiniLM)                  │  (company, version,   │ │
- │        │   one chunk per section; id = company:doc:vN:section:part        │   checksum, status)   │ │
- │        ▼                                                                  │ partial unique index: │ │
- │  store.add()  ─► Chroma collection policy_<company>                       │  ≤ 1 active / company │ │
- │        │        chunks tagged {company_id, version}: INVISIBLE,           └───────────────────────┘ │
- │        │        because every read filters on the live version                       ▲             │
- │        ▼                                                                             │             │
- │  registry.activate()  ── ONE transaction: old row → retired, new row → active ───────┘             │
- │        │                 ◄═══ the commit point: the only step users can see ═══►                   │
- │        ▼                                                                                            │
- │  prune: keep the new version + the one just retired, delete older chunks   (best effort, see §7)   │
- │        ▼                                                                                            │
- │  notify listeners: BM25 cache drops that company's indexes                                          │
- └─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+**Write path.** Steps are numbered as in the failure table in §4. Dashed boxes are the ways an upload ends without changing what answers.
 
- Reading side (every question):
-   token ─► company ─► registry.active(company)  read ONCE ─► (company, version) pinned for the request
-        ─► Chroma collection policy_<company>, where version = pinned  (+ BM25 index keyed by (company, version))
-        ─► ensure_same_tenant(): every chunk's company and version re-checked before it can reach a prompt
+```mermaid
+flowchart TD
+    IN["POST /v1/policies with a policy_admin token,<br/>or the startup seeder"] --> P["1 · Parse and validate the whole document in memory<br/>front matter, version, numbered sections, checksum"]
+    P --> O{{"2 · Document's company = token's company?"}}
+    O -->|"yes, take the ingestion lock"| S{{"3 · Same version and checksum already live?"}}
+    S -->|"no"| B["4 · SQLite: row v2 = staging<br/>refused unless newer than every version ever live"]
+    B --> E["5 · Chunk by section, scan for injected text, embed"]
+    E --> W["6 · Chroma: write v2 chunks, ids contain v2<br/>invisible: no read asks for version 2 yet"]
+    W --> A["7 · SQLite, ONE transaction: v1 retired, v2 active<br/>COMMIT POINT: new questions now get v2"]
+    A --> PR["8 · Chroma: delete versions older than v1<br/>v1 kept for questions already pinned to it"]
+    PR --> N["9 · BM25 cache drops this company"]
+
+    P -->|"invalid: 422"| X["Nothing written<br/>v1 keeps answering"]
+    O -->|"no: 403"| X
+    B -->|"not newer: 409"| X
+    S -->|"yes"| NOOP["200 already active<br/>nothing done"]
+    E -->|"error"| F["v2 marked failed, its chunks deleted<br/>503, v1 keeps answering"]
+    W -->|"error"| F
+    A -->|"error"| F
+
+    classDef commit stroke-width:3px
+    classDef safe stroke-dasharray:4 3
+    class A commit
+    class X,F,NOOP safe
+```
+
+**Read path,** for every question:
+
+```mermaid
+flowchart LR
+    T["Question with a JWT<br/>company_id from the token"] --> R["SQLite registry<br/>live version read once<br/>pins company + version"]
+    R --> C["Chroma collection policy_company<br/>where version = pinned<br/>BM25 index keyed by company + version"]
+    C --> K["ensure_same_tenant<br/>re-check every chunk's<br/>company and version"]
+    K --> PR["Prompt"]
 ```
 
 Two stores are involved, and that's the root of the problem:
@@ -108,6 +104,30 @@ Three rules make this work:
    not answered from.
 3. **The switch is one SQLite transaction** (`PolicyRegistry.activate`, `BEGIN IMMEDIATE`): retire the old
    row and activate the new one, both or neither.
+
+The same steps over time, with the three ways an upload can end:
+
+```mermaid
+sequenceDiagram
+    participant I as IngestionService
+    participant R as SQLite registry
+    participant C as Chroma
+    Note over R,C: v1 is live and complete
+    I->>R: begin(v2): row v2 = staging
+    I->>C: add v2 chunks (ids contain v2, v1 untouched)
+    Note over C: stored, but no read<br/>asks for version 2
+    alt error in embedding, writing or activating
+        I->>R: v2 = failed
+        I->>C: delete v2 chunks
+        Note over R,C: v1 is still live and complete
+    else process dies before the commit
+        Note over R,C: next startup, before any request:<br/>reconcile() marks v2 failed<br/>and deletes every chunk<br/>that is not v1
+    else success
+        I->>R: activate(v2): v1 retired, v2 active, ONE transaction
+        Note over R: COMMIT POINT<br/>new questions now get v2
+        I->>C: delete versions older than v1
+    end
+```
 
 **Why this order, and not another:**
 
@@ -174,13 +194,14 @@ using.
 
 ## 5. Version lifecycle
 
-```
-                    begin()                 activate()                 next version activated
-   (upload) ───────────────►  staging  ─────────────────►  active  ─────────────────────────►  retired
-                                │   ▲                                                         (never live again:
-              error, or crash   │   │  same version uploaded again                             later uploads must
-              (via reconcile)   ▼   │  (begin() replaces the row)                              be a higher number)
-                               failed
+```mermaid
+stateDiagram-v2
+    [*] --> staging: begin()
+    staging --> active: activate()
+    staging --> failed: error or crash
+    failed --> staging: retried
+    active --> retired: next version activated
+    retired --> [*]: never live again
 ```
 
 - `staging` is never visible. Only `active` is read by questions.
@@ -229,6 +250,22 @@ nothing, fell below the evidence threshold, and the employee was told *"your pol
 this"* about a rule the policy does have. It was never a leak or a mixed answer, but it was a wrong
 reply. I found it while writing this document and reproduced it: read the pointer (v1), ingest v2,
 retrieve for v1, and 0 chunks came back.
+
+```mermaid
+sequenceDiagram
+    participant Q as Question
+    participant R as Registry
+    participant U as Upload of v2
+    participant C as Chroma
+    Q->>R: which version is live?
+    R-->>Q: v1, pinned for this question
+    U->>R: activate v2, v1 retired
+    U->>C: prune old chunks
+    Note over C: before the fix: v1 deleted here<br/>after the fix: only versions<br/>older than v1 deleted
+    Q->>C: search where version = 1
+    C-->>Q: before: 0 chunks, a wrong "not covered"<br/>after: v1 chunks, a correct answer
+    Note over Q,C: a question asked from now on gets v2 from the registry,<br/>and Chroma's version filter hides v1 from it
+```
 
 **The fix.** Activation now keeps the version it just retired and deletes only versions older than that
 (`IngestionService._prune_quietly`, which calls `store.delete_all_except(company, {new, previous})`). v1
