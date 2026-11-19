@@ -100,13 +100,16 @@ class Container:
         return HybridRetriever(self.store, self.embedder, bm25)
 
     def startup(self) -> None:
-        """Repair anything a previous crash left behind, then load sample policies."""
+        """Remove companies that are no longer clients, repair anything a previous
+        crash left behind, then load the sample policies of current clients."""
         cutoff = datetime.now(UTC) - timedelta(days=self.settings.token_retention_days)
         purged = self.token_store.purge(expired_before=int(cutoff.timestamp()))
         if purged:
             log.info("removed %d token records older than %d days", purged, self.settings.token_retention_days)
+        clients = {c.company_id for c in self.auth.directory.companies()}
+        self.ingestion.offboard_all_except(clients)
         self.ingestion.reconcile()
-        reports = PolicySeeder(self.ingestion).seed(self.settings.policy_seed_dir)
+        reports = PolicySeeder(self.ingestion).seed(self.settings.policy_seed_dir, companies=clients)
         live = self.registry.active_companies()
         log.info(
             "startup complete: %d new versions loaded, live policies: %s",

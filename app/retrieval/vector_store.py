@@ -66,6 +66,11 @@ class ChromaPolicyStore:
             collection.delete(ids=ids)
         return len(ids)
 
+    def delete_company(self, company_id: str) -> None:
+        """Drop a company's whole collection, if it has one."""
+        if company_id in self.company_ids():
+            self._client.delete_collection(collection_name(company_id))
+
     # -- reads ------------------------------------------------------------
 
     def query(self, company_id: str, version: int, embedding: list[float], k: int) -> list[ScoredChunk]:

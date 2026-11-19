@@ -145,6 +145,31 @@ class IngestionService:
             log.warning("reconcile: interrupted=%s removed_chunks=%d", interrupted, removed)
         return ReconcileReport(interrupted, removed)
 
+    def offboard_all_except(self, client_companies: set[str]) -> list[str]:
+        """Remove the policies of every company that is no longer a client.
+
+        A company that has left the employee directory has nobody who can
+        sign in, but its live policy would still be listed among "other
+        companies" and kept on disk. Its registry rows go first, so it stops
+        being live in one step; then its chunks. If deleting the chunks
+        fails, `reconcile()` removes them on the next start, because no
+        live version is left to keep.
+        """
+        with self._lock:
+            gone = sorted((set(self._registry.company_ids()) | set(self._store.company_ids())) - client_companies)
+            for company_id in gone:
+                versions = self._registry.remove_company(company_id)
+                try:
+                    self._store.delete_company(company_id)
+                except Exception:
+                    log.exception("could not delete the chunks of offboarded company %s", company_id)
+                for listener in self._listeners:
+                    listener(company_id)
+                log.warning(
+                    "offboarded %s: not in the employee directory, removed %d policy versions", company_id, versions
+                )
+        return gone
+
     def _abandon(self, company_id: str, version: int, detail: str) -> None:
         try:
             self._registry.mark_failed(company_id, version, detail)

@@ -177,3 +177,18 @@ def test_concurrent_uploads_of_same_version_leave_one_clean_copy(paths):
     assert registry.active("yamuna").version == 2
     assert versions_in_store(store) == {2}
     assert len(store.chunks("yamuna", 2)) == activated.chunk_count
+
+
+def test_offboarding_removes_only_former_clients(paths):
+    service, registry, store = make_service(paths)
+    service.ingest(YAMUNA_V2)
+    service.ingest(YAMUNA_V1.replace("company_id: yamuna", "company_id: gone"))
+    notified = []
+    service.on_activate(notified.append)
+
+    assert service.offboard_all_except({"yamuna"}) == ["gone"]
+    assert registry.company_ids() == ["yamuna"]
+    assert store.company_ids() == ["yamuna"]
+    assert registry.active("yamuna").version == 2
+    assert notified == ["gone"]
+    assert service.offboard_all_except({"yamuna"}) == []

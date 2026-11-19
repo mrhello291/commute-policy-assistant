@@ -108,6 +108,12 @@ class PolicyRegistry:
             ).fetchall()
         return {r["company_id"]: r["company_name"] for r in rows}
 
+    def company_ids(self) -> list[str]:
+        """Every company with any version recorded, live or not."""
+        with self._connect() as conn:
+            rows = conn.execute("SELECT DISTINCT company_id FROM policy_versions ORDER BY company_id").fetchall()
+        return [r["company_id"] for r in rows]
+
     def staging(self) -> list[PolicyVersion]:
         """Versions that started ingesting but never finished."""
         with self._connect() as conn:
@@ -164,6 +170,12 @@ class PolicyRegistry:
                 (_now(), company_id, version),
             )
         return previous["version"] if previous else None
+
+    def remove_company(self, company_id: str) -> int:
+        """Forget every version of a company. Returns how many were removed."""
+        with self._transaction() as conn:
+            cursor = conn.execute("DELETE FROM policy_versions WHERE company_id = ?", (company_id,))
+        return cursor.rowcount
 
     def mark_failed(self, company_id: str, version: int, detail: str) -> None:
         with self._transaction() as conn:
