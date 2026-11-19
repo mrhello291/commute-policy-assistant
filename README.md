@@ -28,11 +28,11 @@ Without an API key the service still starts. Retrieval works, and questions get 
 | Tests (no network or key needed) | `docker compose run --rm app pytest` |
 | Evaluation set (uses the LLM from `.env`, about 6 min because it's paced for free-tier limits). Writes `evaluation/results/eval_set.jsonl` | `docker compose run --rm app python -m evaluation.run` |
 | Evaluation without a key (retrieval only). Writes `evaluation/results/retrieval-only.jsonl` | `docker compose run --rm app python -m evaluation.run --llm none` |
+| Latency benchmark (server must be up) | `python scripts/bench.py` |
 
 **The evaluation set in the brief's format** (`id, input, expected, actual, pass, notes`) is
 [`evaluation/results/eval_set.jsonl`](evaluation/results/eval_set.jsonl), the scored run of the
 shipped configuration. `evaluation/cases.jsonl` is the runner's input (questions and expected facts).
-| Latency benchmark (server must be up) | `python scripts/bench.py` |
 
 To run without Docker you need Python 3.11+: `pip install -e ".[dev]"`, then `uvicorn app.main:serve --factory`.
 
