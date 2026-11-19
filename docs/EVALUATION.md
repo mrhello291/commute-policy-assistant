@@ -1,8 +1,10 @@
 # Evaluation report
 
-**Headline:** 56 of 58 cases pass with the shipped configuration on the sample policies (§3.5), with
-**0 cross-company leaks** and **0 obeyed injections** across all runs. Every question used
-**at most 1 LLM call**, and p95 latency was **1.0 s** with the LLM call included. The retrieval
+**Headline:** 57 of 58 cases pass with the shipped configuration, on the sample policies as PDFs
+(§3.6), with **0 cross-company leaks** and **0 obeyed injections**. **All 44 citations match the PDF**
+(section, title, excerpt and page numbers, checked against the raw PDF text), and every required fact
+in an answer is in a section it cites. Every question used **at most 1 LLM call**, and p95 latency was
+**1.3 s** with the LLM call included. The retrieval
 improvement (contextual section headers) raised the pass rate from 88% to 98% on the original 43 cases
 (§3.2). The sample policies were later rebuilt from real-policy research (see
 [POLICY_DATA.md](POLICY_DATA.md)), and 15 cases were added for them.
@@ -66,6 +68,22 @@ pass:
 4. **citation**: answered cases cite at least one gold section, and only the caller's own company's document
 5. **isolation**: every retrieved chunk belongs to the caller's company
 6. **budget**: ≤ 2 LLM calls, ≤ 3 citations
+7. **citation_valid**: every citation matches the policy PDF it names (below)
+
+**Are the citations correct?** Check 4 only asks whether an answer cites one expected section. So
+`evaluation/citation_check.py` checks each citation against the PDF itself. It reads the PDF's raw page
+text with pdfplumber, not through the service's parser, so a parser bug that put text in the wrong
+section or on the wrong page would be caught here rather than trusted. Three measures:
+
+| Measure | What it checks | Counts towards pass? |
+|---|---|---|
+| **Verified against the PDF** | The document and version exist; the section's number and title are printed on the cited start page; the excerpt and the section's whole text are on the cited pages; and the range is no wider than it needs to be | Yes (check 7). A citation that doesn't match the document is wrong whatever the answer says |
+| **On an expected section** (precision) | Share of citations that point at one of the case's gold sections | No: a second relevant section that isn't on the gold list would count against it |
+| **Facts supported by citations** | Every required fact the answer states (`must_include`) also appears in the text of a cited section, so a right answer citing the wrong section is caught | No, reported as a rate: the fact patterns were written for answers, not policy wording |
+
+`tests/test_citation_check.py` shows each wrong citation being caught: wrong page, a page range too
+short or too wide, wrong title, an excerpt from another section, another version or document, and a
+right answer citing the wrong section.
 
 Retrieval quality is reported separately: **hit@1**, **hit@3** and **MRR** of the first gold section in
 the top 3. Only the top 3 ever reach the model.
@@ -224,6 +242,49 @@ How to read it, honestly:
   2.2 s, which is the designed failure path. They passed when re-run. The third, `yam-27`, was a faulty
   case definition: the answer was right (*"you will not be charged or recorded as a no-show"*) and my
   regex for the fact did not allow "not be charged". I widened the regex and re-ran the whole set.
+
+### 3.6 Re-run on the PDF policies, with citations checked against the PDF
+
+The policies are now uploaded and seeded as PDFs (README, design decision 4). The PDFs were generated
+from the Markdown used in §3.5, so this run tests the PDF reader: if it moved a section boundary or let
+a page footer into a section, retrieval would change. Citations now carry PDF page numbers, and every
+citation was checked against the PDF (§2.1, check 7). Same cases, model, embedder and settings. This run
+is now `evaluation/results/eval_set.*`.
+
+| | Markdown (§3.5) | **PDF (as shipped)** |
+|---|---|---|
+| Passed | 56 / 58 | **57 / 58 (98%)** |
+| Retrieval hit@1 / hit@3 / MRR | 0.814 / 0.977 / 0.891 | **0.814 / 0.977 / 0.891** (identical) |
+| Citations matching the PDF (section, title, excerpt, pages) | not checked | **44 / 44** |
+| Citations on an expected section | not measured | 42 / 44 |
+| Required facts found in the cited sections | not measured | **42 / 42** |
+| Leaks | 0 | 0 |
+| LLM calls (max / mean) | 1 / 0.90 | 1 / 0.90 |
+| Latency p50 / p95 / max | 763 / 1004 / 1281 ms | 772 / 1303 / 1409 ms |
+
+- **Retrieval is identical to three decimals,** which is what should happen: every section's text is the
+  same as in Markdown (`tests/test_sample_pdfs.py` checks this), apart from the `**bold**` markers, which
+  the PDF shows as bold type instead.
+- **Every citation is right.** All 44 point at a section whose number and title are on the cited start
+  page, whose excerpt and full text are on the cited pages, and whose page range is no wider than needed.
+  Every fact the answers were required to state is in a section they cite, so no answer was right "by
+  accident" with a wrong citation.
+- **The two citations outside the gold lists are reasonable.** `yam-23` (*"How far from the office can
+  I live?"*) answers "between 5 km and 35 km" and cites §2.2 for the 5 km, which is correct; the gold
+  list only had §2.4. `yam-01` adds §4.1 (the night travel window) as context for the escort rule.
+- **The one failure is `yam-26`**, as in §3.5: the intern section (2.3) isn't retrieved into the top 3,
+  so the answer is a safe "not covered".
+- **`yam-06` was a faulty case definition, fixed before this run.** In an earlier PDF run the answer
+  was right (*"If you skip your booked cab three times in one month, your transport will be suspended
+  for 7 days"*, citing §8), but the case forbade `one month|1 month` to catch Medhavi's "removed from the
+  roster for one month". The model had repeated the question's own words, so the scorer called it a
+  leak. The pattern now matches Medhavi's penalty (`for (a|one|1) month`, `removed from the roster`,
+  `off the roster`) and not the question's wording. The same kind of fix as `yam-27` in §3.5, and the
+  whole set was re-run.
+- **Runs vary.** Two earlier PDF runs scored 55/58. Both missed `yam-26`. The first also missed
+  `yam-06` (above) and `yam-24`; the second missed `yam-24` and `gom-01`. Each `yam-24` and `gom-01`
+  miss was Groq not replying within 2.2 s, so the answer was "try again", the designed failure path.
+  Both passed when re-run. Expect about 55 to 57 of 58, depending on the provider's latency that day.
 
 ## 4. Known failures
 

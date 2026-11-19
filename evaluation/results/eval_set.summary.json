@@ -1,7 +1,7 @@
 {
   "cases": 58,
-  "passed": 56,
-  "pass_rate": 0.966,
+  "passed": 57,
+  "pass_rate": 0.983,
   "by_category": {
     "cross_company": {
       "passed": 5,
@@ -24,7 +24,7 @@
       "cases": 8
     },
     "paraphrase": {
-      "passed": 24,
+      "passed": 25,
       "cases": 26
     },
     "version": {
@@ -38,15 +38,23 @@
     "hit_at_3": 0.977,
     "mrr": 0.891
   },
+  "citations": {
+    "total": 44,
+    "verified_against_pdf": 44,
+    "on_gold_section": 42,
+    "precision": 0.955,
+    "facts_checked": 42,
+    "facts_supported_by_citations": 42
+  },
   "leaks": 0,
   "llm_calls": {
     "max": 1,
     "mean": 0.9
   },
   "latency_ms": {
-    "p50": 763.4,
-    "p95": 1003.6,
-    "max": 1280.5
+    "p50": 772.3,
+    "p95": 1302.9,
+    "max": 1408.6
   },
   "config": {
     "retriever": "dense",
