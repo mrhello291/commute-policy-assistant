@@ -187,39 +187,39 @@ deleted at the next startup (see [Sign-in](#2-sign-in-a-mock-directory-a-fresh-t
 
 ## How it works
 
-```
-POST /v1/ask  ──►  JWT ─► token store ─► directory ─► Principal(company_id)   identity from the token only
-                    │
-                    ▼
-           live version for company  (SQLite registry, read once per request)
-                    │
-       names another client company? ──yes──► "other_company"          0 LLM calls
-                    │
-                    ▼
-           retrieve top 3 of that company + version     Chroma collection per company
-           (MiniLM embeddings, contextual headers)      + re-check of every chunk's company
-                    │
-       best similarity below threshold? ──yes──► "not_covered"         0 LLM calls
-                    │
-                    ▼
-           prompt: excerpts S1..S3 fenced with a random token (spotlighting)
-                    │
-                    ▼
-           LLM (Groq, strict JSON schema)  ───────────────────────────  call 1
-           {verdict, answer, citations: ["S1".."S3"]}
-                    │
-           validate in code: JSON shape, labels, other company names, injected text
-                    │ invalid or transient error, and time left?
-                    ├──────────────► one repair / retry  ─────────────  call 2
-                    ▼
-           citations rendered from chunk metadata (document, version, section)
+Answering a question:
+
+```mermaid
+flowchart TD
+    Q["POST /v1/ask"] --> AUTH["Authenticate the JWT, see Sign-in"]
+    AUTH --> LIVE["Read the company's live policy version once<br/>SQLite registry"]
+    LIVE -->|"none loaded"| NP["no_policy"]
+    LIVE --> OTHER{{"Question names another client company?"}}
+    OTHER -->|"yes"| OC["other_company<br/>0 LLM calls"]
+    OTHER -->|"no"| RET["Retrieve the top 3 chunks<br/>this company's collection, live version only,<br/>every chunk's company and version re-checked"]
+    RET -->|"slow, failed or tenant check failed"| TA["try_again<br/>HTTP 503 + Retry-After"]
+    RET --> TH{{"Best similarity above the threshold?"}}
+    TH -->|"no"| NC["not_covered<br/>0 LLM calls"]
+    TH -->|"yes"| LLM["LLM call 1 · Groq, strict JSON schema<br/>excerpts S1 to S3 fenced with a random token"]
+    LLM --> VAL{{"Valid in code? JSON shape, citation labels,<br/>no other company's name, no fence token"}}
+    VAL -->|"rejected or transient error,<br/>and time left"| LLM2["LLM call 2 · one repair or retry"]
+    LLM2 --> VAL2{{"Valid?"}}
+    VAL -->|"yes"| OK["answered, citations built from chunk metadata<br/>or not_covered if the model says so"]
+    VAL2 -->|"yes"| OK
+    VAL2 -->|"rejected again"| UN["unanswerable"]
+    VAL -->|"timeout, rate limit or outage"| TA
+    VAL2 -->|"timeout or outage"| TA
 ```
 
 Ingestion (on startup for `data/policies/*/v*.md`, or via `POST /v1/policies`):
 
-```
-parse + validate whole doc ─► registry: staging ─► embed + write chunks (invisible) ─► registry: flip live pointer ─► prune chunks older than the retired version
-        fails here: nothing written      fails here: old version still live, partial chunks removed       (atomic)
+```mermaid
+flowchart LR
+    P["Parse and validate<br/>the whole document"] --> B["Registry<br/>v2 = staging"] --> W["Write v2 chunks<br/>invisible to reads"] --> A["Flip the live pointer<br/>one SQLite transaction"] --> PR["Prune versions<br/>older than v1"]
+    P -.->|"fails"| N1["Nothing written"]
+    B & W & A -.->|"fails"| N2["v1 still live,<br/>v2 chunks removed"]
+    classDef commit stroke-width:3px
+    class A commit
 ```
 
 The full design is in [docs/INGESTION.md](docs/INGESTION.md): the architecture diagram, what
@@ -298,6 +298,51 @@ The contradictions at a glance (full table in the doc):
   comes back. The eval set adds cross-company traps scored on *forbidden facts*.
 
 ### 2. Sign-in: a mock directory, a fresh token per login, every token revocable
+
+Signing in:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant L as POST /v1/auth/login
+    participant D as Employee directory<br/>data/employees.json
+    participant I as Token issuer
+    participant S as Token store<br/>SQLite
+    C->>L: company_id, employee_id (nothing else accepted)
+    alt 10 failed sign-ins from this client in 5 minutes
+        L-->>C: 429 too_many_attempts, Retry-After
+    end
+    L->>D: company known? employee works there? still active?
+    D-->>L: the employee and their role (the role comes from here)
+    alt not found, or has left
+        L-->>C: 401 unknown_company or unknown_employee,<br/>403 account_inactive (counted as a failure)
+    end
+    L->>I: sign HS256: sub, company_id, role, jti, iss, aud, iat, exp
+    I-->>L: a fresh JWT
+    L->>S: record jti, employee, company, role, expiry, IP, user agent
+    Note over S: oldest sessions beyond<br/>the cap are revoked
+    L-->>C: access_token, plus an HttpOnly SameSite=Strict cookie<br/>that only opens the web pages
+```
+
+Every API request after that. The company a route sees comes only from here:
+
+```mermaid
+flowchart TD
+    R["API request · Authorization: Bearer token"] --> V{{"1 · Signature and claims<br/>HS256 only, issuer, audience, not expired, every claim present"}}
+    V -->|"fail"| X["401 unauthorized"]
+    V -->|"pass"| S{{"2 · Token store<br/>jti recorded, not revoked, not expired, claims match the record"}}
+    S -->|"fail"| X
+    S -->|"store unreadable"| U["503 auth_unavailable<br/>fails closed"]
+    S -->|"pass"| D{{"3 · Directory, read now<br/>employee still active, same company, same role"}}
+    D -->|"fail"| X
+    D -->|"pass"| P["Principal: subject, company_id, role<br/>the only place a route gets the company from"]
+    P --> ASK["/v1/ask, /v1/policies/active<br/>scoped to this company"]
+    P --> ADM{{"role is policy_admin?"}}
+    ADM -->|"yes"| UP["POST /v1/policies<br/>own company only"]
+    ADM -->|"no"| F["403"]
+```
+
 - **The directory decides who you are.** `data/employees.json` stands in for each company's HR system.
   Login takes only a company and an employee ID (`extra="forbid"`); the role comes from the directory, so
   nobody can ask to be a `policy_admin`. Employee IDs are unique across companies and checked at startup.
