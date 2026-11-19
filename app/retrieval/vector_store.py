@@ -7,6 +7,7 @@ chunk still records its company and version so results can be checked again
 on the way out.
 """
 
+from collections.abc import Collection
 from pathlib import Path
 
 import chromadb
@@ -57,10 +58,10 @@ class ChromaPolicyStore:
     def delete_version(self, company_id: str, version: int) -> None:
         self._collection(company_id).delete(where={"version": version})
 
-    def delete_all_except(self, company_id: str, version: int | None) -> int:
-        """Remove every chunk not belonging to `version`. Returns how many were removed."""
+    def delete_all_except(self, company_id: str, keep: Collection[int]) -> int:
+        """Remove every chunk whose version is not in `keep`. Returns how many were removed."""
         collection = self._collection(company_id)
-        where = {"version": {"$ne": version}} if version is not None else None
+        where = {"version": {"$nin": sorted(keep)}} if keep else None
         ids = collection.get(where=where, include=[])["ids"]
         if ids:
             collection.delete(ids=ids)

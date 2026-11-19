@@ -60,11 +60,16 @@ def test_companies_live_in_separate_collections(store, embedder):
     assert store.company_ids() == ["acme", "zeta"]
 
 
-def test_delete_all_except_keeps_one_version(store, embedder):
-    add(store, embedder, make_chunk(version=1), make_chunk(version=2), make_chunk(version=3))
-    assert store.delete_all_except("acme", 2) == 2
-    assert [c.version for c in store.chunks("acme", 2)] == [2]
-    assert store.chunks("acme", 1) == []
+def test_delete_all_except_keeps_the_given_versions(store, embedder):
+    add(store, embedder, *(make_chunk(version=v) for v in (1, 2, 3, 4)))
+    assert store.delete_all_except("acme", {2, 3}) == 2
+    assert [c.version for c in store.chunks("acme", 2) + store.chunks("acme", 3)] == [2, 3]
+    assert store.chunks("acme", 1) == store.chunks("acme", 4) == []
+
+
+def test_delete_all_except_nothing_empties_the_company(store, embedder):
+    add(store, embedder, make_chunk(version=1), make_chunk(version=2))
+    assert store.delete_all_except("acme", set()) == 2
 
 
 def test_mixed_company_batch_is_refused(store, embedder):

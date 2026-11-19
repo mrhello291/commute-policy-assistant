@@ -10,8 +10,12 @@ The sequence is the classic blue/green switch:
    chunks are invisible.
 4. Flip the registry's live pointer in one transaction. This is the only
    step that changes what users see.
-5. Delete the old version's chunks. If this fails nothing is wrong, only
-   untidy: `reconcile()` removes leftovers on the next start.
+5. Delete chunks older than the version just retired. The retired one is
+   kept until the next activation, because a question that read "it is
+   live" a moment before the switch may still be searching it. Nothing new
+   can see it: every read filters on the version the registry gives. If the
+   delete fails nothing is wrong, only untidy: `reconcile()` removes
+   leftovers on the next start.
 
 If anything in steps 2 to 4 fails, the old version stays live and the
 half-written chunks are removed.
@@ -114,7 +118,7 @@ class IngestionService:
                 ", ".join(flagged),
             )
         if previous is not None:
-            self._delete_quietly(doc.company_id, previous)
+            self._prune_quietly(doc.company_id, keep={doc.version, previous})
         for listener in self._listeners:
             listener(doc.company_id)
 
@@ -139,7 +143,8 @@ class IngestionService:
         removed = 0
         for company_id in self._store.company_ids():
             live = self._registry.active(company_id)
-            removed += self._store.delete_all_except(company_id, live.version if live else None)
+            # No request is running yet, so the retired version isn't needed.
+            removed += self._store.delete_all_except(company_id, {live.version} if live else set())
 
         if interrupted or removed:
             log.warning("reconcile: interrupted=%s removed_chunks=%d", interrupted, removed)
@@ -179,6 +184,13 @@ class IngestionService:
             return  # can't confirm it isn't live, so leave the chunks for reconcile()
         if live is None or live.version != version:
             self._delete_quietly(company_id, version)
+
+    def _prune_quietly(self, company_id: str, keep: set[int]) -> None:
+        try:
+            self._store.delete_all_except(company_id, keep)
+        except Exception:
+            # Harmless for the same reason as below.
+            log.exception("could not prune old chunks of %s", company_id)
 
     def _delete_quietly(self, company_id: str, version: int) -> None:
         try:

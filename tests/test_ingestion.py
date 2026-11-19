@@ -9,6 +9,7 @@ from app.policies.ingestion import IngestionService
 from app.policies.parser import MarkdownPolicyParser
 from app.policies.registry import PolicyRegistry
 from app.retrieval.embeddings import HashingEmbedder
+from app.retrieval.retriever import DenseRetriever
 from app.retrieval.vector_store import ChromaPolicyStore
 
 POLICY_DIR = Path(__file__).resolve().parent.parent / "data" / "policies"
@@ -75,9 +76,43 @@ def test_new_version_replaces_old_completely(paths):
     report = service.ingest(YAMUNA_V2)
     assert report.previous_version == 1
     assert registry.active("yamuna").version == 2
-    assert versions_in_store(store) == {2}
+    live = registry.active("yamuna")
+    hits = DenseRetriever(store, HashingEmbedder()).retrieve("yamuna", live.version, "escort for night drops", 10)
+    assert hits and {h.chunk.version for h in hits} == {2}
     texts = " ".join(c.text for c in store.chunks("yamuna", 2))
     assert "7:30 PM" in texts and "8:00 PM" not in texts
+
+
+def test_question_pinned_to_old_version_still_finds_it_after_the_switch(paths):
+    """A question reads "v1 is live", an upload switches to v2, then the question searches.
+
+    Deleting v1's chunks at the switch used to make this search come back
+    empty, so the employee was told the policy didn't cover their question.
+    """
+    service, registry, store = make_service(paths)
+    service.ingest(YAMUNA_V1)
+    pinned = registry.active("yamuna").version
+    service.ingest(YAMUNA_V2)
+    hits = DenseRetriever(store, HashingEmbedder()).retrieve("yamuna", pinned, "Who approves an airport trip?", 3)
+    assert hits and {h.chunk.version for h in hits} == {1}
+
+
+def test_only_the_live_and_just_retired_versions_are_kept(paths):
+    service, registry, store = make_service(paths)
+    service.ingest(YAMUNA_V1)
+    service.ingest(YAMUNA_V2)
+    assert versions_in_store(store) == {1, 2}
+    service.ingest(YAMUNA_V2.replace("version: 2", "version: 3"))
+    assert versions_in_store(store) == {2, 3}
+
+
+def test_restart_keeps_only_the_live_version(paths):
+    service, _, _ = make_service(paths)
+    service.ingest(YAMUNA_V1)
+    service.ingest(YAMUNA_V2)
+    restarted, _, store = make_service(paths)
+    assert restarted.reconcile().removed_chunks > 0
+    assert versions_in_store(store) == {2}
 
 
 def test_reingesting_the_live_version_is_a_no_op(paths):
@@ -175,7 +210,7 @@ def test_concurrent_uploads_of_same_version_leave_one_clean_copy(paths):
         reports = list(pool.map(lambda _: service.ingest(YAMUNA_V2), range(4)))
     [activated] = [r for r in reports if r.activated]
     assert registry.active("yamuna").version == 2
-    assert versions_in_store(store) == {2}
+    assert versions_in_store(store) == {1, 2}
     assert len(store.chunks("yamuna", 2)) == activated.chunk_count
 
 
