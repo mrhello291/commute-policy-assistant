@@ -230,3 +230,16 @@ def test_question_whitespace_and_control_characters_are_cleaned(container):
     llm = ScriptedLLM([reply()])
     ask(make_service(container, llm), "  escort\x00 on\n\n late   drops?\x07 ")
     assert "escort on late drops?" in llm.calls[0].user
+
+
+@pytest.mark.parametrize(
+    "message",
+    ["NOT_COVERED", "NO_POLICY", "UNANSWERABLE", "TRY_AGAIN", "ASSISTANT_UNAVAILABLE"],
+)
+def test_every_reply_that_cannot_answer_points_to_the_transport_desk(message):
+    """The brief: a plain message that says so and points them to the transport desk.
+
+    The tests above check each failure returns its message; this checks every
+    one of those messages does what the brief asks.
+    """
+    assert "transport desk" in getattr(messages, message)

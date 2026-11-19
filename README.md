@@ -558,7 +558,7 @@ app/
 data/policies/   three companies' policies (Yamuna has v1 and v2)
 data/employees.json  mock HR directory: 3–4 employees per company, one policy admin each
 evaluation/      cases.jsonl (questions), scoring, runner, results/eval_set.jsonl (scored set)
-tests/           ~410 tests, no network
+tests/           ~440 tests, no network
 scripts/bench.py latency against a running server
 docs/EVALUATION.md  evaluation report
 docs/INGESTION.md   ingestion design: atomic version switch, failure points, recovery
