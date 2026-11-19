@@ -1,6 +1,6 @@
 """Loads the bundled sample policies when the service starts.
 
-Each company folder holds `v1.md`, `v2.md`, ... and they are ingested in
+Each company folder holds `v1.pdf`, `v2.pdf`, ... and they are ingested in
 version order, so the newest one ends up live. Running it again is harmless:
 versions that are already live or retired are skipped. Folders for companies
 that aren't clients (not in the employee directory) are skipped too.
@@ -15,11 +15,12 @@ from app.policies.ingestion import IngestionReport, IngestionService
 
 log = logging.getLogger(__name__)
 
-_VERSION_FILE = re.compile(r"^v(\d+)\.md$")
+# PDF is what HR sends; Markdown is still accepted for hand-written policies.
+_VERSION_FILE = re.compile(r"^v(\d+)\.(pdf|md)$")
 
 
 def policy_files(seed_dir: Path) -> list[Path]:
-    """Every `<company>/v<N>.md` under `seed_dir`, ordered by company then version."""
+    """Every `<company>/v<N>.pdf` (or `.md`) under `seed_dir`, ordered by company then version."""
     found = []
     for company_dir in sorted(p for p in seed_dir.iterdir() if p.is_dir()):
         for path in company_dir.iterdir():
@@ -46,7 +47,7 @@ class PolicySeeder:
                 skipped.add(path.parent.name)
                 continue
             try:
-                reports.append(self._ingestion.ingest(path.read_text(encoding="utf-8")))
+                reports.append(self._ingestion.ingest(path.read_bytes()))
             except VersionConflict:
                 log.info("skipping %s, a newer version is already live", path)
             except AppError:

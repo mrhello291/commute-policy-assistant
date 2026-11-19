@@ -55,7 +55,7 @@ import pdfplumber
 
 from app.errors import PolicyFormatError
 from app.policies.models import PolicyDocument, Section
-from app.policies.parser import MAX_DOCUMENT_BYTES, validate_metadata
+from app.policies.parser import MAX_DOCUMENT_BYTES, MarkdownPolicyParser, validate_metadata
 
 log = logging.getLogger(__name__)
 
@@ -548,3 +548,27 @@ def _is_password_error(exc: BaseException) -> bool:
         seen = seen.__cause__ or seen.__context__
     return False
 
+
+class PolicyParser:
+    """Picks the parser from the file's content, not its name.
+
+    PDF is the format HR sends. Markdown with front matter is still read, for
+    documents written by hand and for tests that need an exact document.
+    """
+
+    def __init__(self):
+        self._pdf = PdfPolicyParser()
+        self._markdown = MarkdownPolicyParser()
+
+    def parse(self, data: bytes | str) -> PolicyDocument:
+        if isinstance(data, str):
+            return self._markdown.parse(data)
+        if data.lstrip()[:5] == b"%PDF-":
+            return self._pdf.parse(data)
+        try:
+            text = data.decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            raise PolicyFormatError("the file is not a PDF") from exc
+        if not text.lstrip().startswith("---"):
+            raise PolicyFormatError("the file is not a PDF (or a Markdown policy with front matter)")
+        return self._markdown.parse(text)

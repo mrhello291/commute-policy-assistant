@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from app.errors import IngestionFailed, PermissionDenied
 from app.policies.chunker import SectionChunker
 from app.policies.models import PolicyDocument
-from app.policies.parser import MarkdownPolicyParser
+from app.policies.pdf_parser import PolicyParser
 from app.policies.registry import PolicyRegistry
 from app.policies.scanner import InjectionScanner
 from app.retrieval.embeddings import Embedder
@@ -61,14 +61,14 @@ class IngestionService:
         registry: PolicyRegistry,
         store: ChromaPolicyStore,
         embedder: Embedder,
-        parser: MarkdownPolicyParser | None = None,
+        parser: PolicyParser | None = None,
         chunker: SectionChunker | None = None,
         scanner: InjectionScanner | None = None,
     ):
         self._registry = registry
         self._store = store
         self._embedder = embedder
-        self._parser = parser or MarkdownPolicyParser()
+        self._parser = parser or PolicyParser()
         self._chunker = chunker or SectionChunker()
         self._scanner = scanner or InjectionScanner()
         self._listeners: list[Callable[[str], None]] = []
@@ -81,8 +81,8 @@ class IngestionService:
         """Call `listener(company_id)` whenever a company's live version changes."""
         self._listeners.append(listener)
 
-    def ingest(self, raw: str, acting_company: str | None = None) -> IngestionReport:
-        """Ingest one policy document.
+    def ingest(self, raw: bytes | str, acting_company: str | None = None) -> IngestionReport:
+        """Ingest one policy document: PDF bytes, or Markdown.
 
         `acting_company` is the company of the admin doing the upload, taken
         from their token. It is None only for the trusted seed loader.
