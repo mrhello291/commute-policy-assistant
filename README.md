@@ -218,9 +218,13 @@ POST /v1/ask  ──►  JWT ─► token store ─► directory ─► Principa
 Ingestion (on startup for `data/policies/*/v*.md`, or via `POST /v1/policies`):
 
 ```
-parse + validate whole doc ─► registry: staging ─► embed + write chunks (invisible) ─► registry: flip live pointer ─► delete old chunks
+parse + validate whole doc ─► registry: staging ─► embed + write chunks (invisible) ─► registry: flip live pointer ─► prune chunks older than the retired version
         fails here: nothing written      fails here: old version still live, partial chunks removed       (atomic)
 ```
+
+The full design is in [docs/INGESTION.md](docs/INGESTION.md): the architecture diagram, what
+"half-updated" could mean, what happens at every failure and crash point, recovery at startup, and the
+test that proves each guarantee.
 
 ---
 
@@ -323,15 +327,25 @@ The contradictions at a glance (full table in the doc):
   `Authorization` header, so a forged cross-site request carries nothing the API accepts.
 
 ### 3. A new policy version replaces the old one atomically
+
+Full design, failure table and tests: [docs/INGESTION.md](docs/INGESTION.md).
+
 - The registry (SQLite) holds one `active` row per company. A **partial unique index** makes two active
   versions impossible at the database level.
-- New chunks are written under the new version number while the old version is still live. Retrieval
-  always filters on the live version, so they're invisible. Then the pointer flips in **one transaction**.
+- New chunks are written under the new version number while the old version is still live. Every Chroma
+  read passes `where={"version": <live version from the registry>}`, so chunks of any other version in
+  the same collection are invisible. Then the pointer flips in **one transaction**.
 - If embedding or writing fails part-way, the old version stays live and the partial chunks are deleted.
   If the process dies mid-ingest, `reconcile()` on the next start marks the version failed and removes
   stray chunks.
 - Versions only move forward, so an old document can't be re-activated by mistake. Each request reads the
   live version once, so an upload mid-request can't mix two versions in one answer.
+- **The retired version's chunks are kept until the next switch (a race found and fixed).** Old chunks
+  used to be deleted at the switch. A question that had read "v1 is live" a moment earlier then
+  searched for v1, found nothing, and told the employee the policy didn't cover their question.
+  Activation now deletes only versions older than the one it retires, and startup cleanup keeps just the
+  live one. Keeping v1 can't make it answer again: new questions get v2 from the registry, and Chroma's
+  version filter excludes v1. A test reproduces the race ([details](docs/INGESTION.md#7-questions-asked-while-an-upload-is-running)).
 - **The admin sets the version number, not the server.** Every citation shows it, so it has to match the
   copy HR circulated. If the server numbered uploads itself, an answer could cite "v4" while the
   employee's PDF says v3. It also makes uploads safe to repeat: sending the same file twice is a no-op,
@@ -499,9 +513,10 @@ app/
 data/policies/   three companies' policies (Yamuna has v1 and v2)
 data/employees.json  mock HR directory: 3–4 employees per company, one policy admin each
 evaluation/      cases.jsonl (questions), scoring, runner, results/eval_set.jsonl (scored set)
-tests/           ~380 tests, no network
+tests/           ~410 tests, no network
 scripts/bench.py latency against a running server
 docs/EVALUATION.md  evaluation report
+docs/INGESTION.md   ingestion design: atomic version switch, failure points, recovery
 ```
 
 ## Known failures and limitations
