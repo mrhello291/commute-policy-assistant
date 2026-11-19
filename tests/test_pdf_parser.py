@@ -148,6 +148,13 @@ def test_a_heading_at_the_bottom_of_a_page_keeps_the_text_on_the_next_page():
     assert bodies(parse(pdf))["1.1"] == "Drops after 10 PM have an escort."
 
 
+def test_sections_record_the_pages_they_span():
+    pdf = Pdf(footer="Page {page}").front().heading("1. Scope").para("All staff.").heading("1.1 Night drops", size=11)
+    pdf.new_page().para("Drops after 10 PM have an escort.").heading("2. Booking").para("Book in the app.")
+
+    assert [(s.section_id, s.pages) for s in parse(pdf).sections] == [("1", (1, 1)), ("1.1", (1, 2)), ("2", (2, 2))]
+
+
 def test_a_finished_sentence_before_a_page_break_starts_a_new_paragraph():
     pdf = Pdf().front().heading("1. Scope").line("All staff are covered.").new_page().para("Contractors are not.")
 

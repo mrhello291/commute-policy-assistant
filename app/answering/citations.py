@@ -15,6 +15,9 @@ class Citation:
     section: str
     title: str
     excerpt: str
+    # PDF page range of the section, None for a Markdown policy.
+    page_start: int | None = None
+    page_end: int | None = None
 
 
 def _shorten(text: str, limit: int = EXCERPT_CHARS) -> str:
@@ -42,6 +45,8 @@ def render_citations(labels: tuple[str, ...], by_label: dict[str, ScoredChunk]) 
                 section=chunk.section_id,
                 title=chunk.section_title,
                 excerpt=_shorten(chunk.text),
+                page_start=chunk.pages[0] if chunk.pages else None,
+                page_end=chunk.pages[1] if chunk.pages else None,
             )
         )
     return citations

@@ -56,6 +56,9 @@ def to_actual(result: AnswerResult) -> dict:
                 "version": c.version,
                 "section": c.section,
                 "title": c.title,
+                "page_start": c.page_start,
+                "page_end": c.page_end,
+                "excerpt": c.excerpt,
             }
             for c in result.citations
         ],

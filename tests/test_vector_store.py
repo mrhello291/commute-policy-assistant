@@ -52,6 +52,16 @@ def test_query_only_sees_requested_version(store, embedder):
     assert [h.chunk.text for h in hits] == ["new rule"]
 
 
+def test_page_range_survives_the_round_trip(store, embedder):
+    import dataclasses
+
+    add(store, embedder, dataclasses.replace(make_chunk(text="paged rule"), pages=(2, 3)))
+    add(store, embedder, make_chunk(company="zeta", text="markdown rule"))
+    [paged] = store.query("acme", 1, embedder.embed(["rule"])[0], k=5)
+    [unpaged] = store.query("zeta", 1, embedder.embed(["rule"])[0], k=5)
+    assert (paged.chunk.pages, unpaged.chunk.pages) == ((2, 3), None)
+
+
 def test_companies_live_in_separate_collections(store, embedder):
     add(store, embedder, make_chunk(company="acme", text="acme escort rule"))
     add(store, embedder, make_chunk(company="zeta", text="zeta escort rule"))

@@ -18,6 +18,9 @@ class Section:
     # e.g. ("4. Night-shift travel", "4.2 Security escort").
     path: tuple[str, ...]
     body: str
+    # First and last PDF page the section is on, e.g. (2, 3) when a page
+    # break falls inside it. None for Markdown, which has no pages.
+    pages: tuple[int, int] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +59,8 @@ class Chunk:
     flags: tuple[str, ...] = ()
     # Whether the heading path is prepended for indexing (see indexed_text).
     contextual: bool = True
+    # The section's PDF page range (see Section.pages); None for Markdown.
+    pages: tuple[int, int] | None = None
 
     @property
     def indexed_text(self) -> str:

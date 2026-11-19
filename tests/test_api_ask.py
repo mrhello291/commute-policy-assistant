@@ -105,3 +105,4 @@ def test_every_citation_can_be_found_in_the_policy_document(make_client):
         section = sections[citation["section"]]
         assert section.title == citation["title"], citation
         assert citation["excerpt"].removesuffix("…") in " ".join(section.body.split())
+        assert (citation["page_start"], citation["page_end"]) == section.pages, citation

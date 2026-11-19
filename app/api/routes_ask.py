@@ -31,6 +31,8 @@ class CitationOut(BaseModel):
     section: str
     title: str
     excerpt: str
+    page_start: int | None = Field(None, description="First PDF page of the section (null for Markdown policies)")
+    page_end: int | None = Field(None, description="Last PDF page of the section; equals page_start on one page")
 
 
 class PolicyOut(BaseModel):
@@ -57,7 +59,15 @@ def to_response(result: AnswerResult, req_id: str) -> AskResponse:
         status=result.status,
         answer=result.answer,
         citations=[
-            CitationOut(document=c.document, version=c.version, section=c.section, title=c.title, excerpt=c.excerpt)
+            CitationOut(
+                document=c.document,
+                version=c.version,
+                section=c.section,
+                title=c.title,
+                excerpt=c.excerpt,
+                page_start=c.page_start,
+                page_end=c.page_end,
+            )
             for c in result.citations
         ],
         policy=PolicyOut(document=result.policy.title, version=result.policy.version) if result.policy else None,

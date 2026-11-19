@@ -370,13 +370,17 @@ class PdfPolicyParser:
         para_gap = self._paragraph_gap(lines, body_size)
 
         current: tuple[str, str, tuple[str, ...]] | None = None
+        heading_page = 0
         content: list[_Line] = []
 
         def flush() -> None:
             if current is not None:
                 body = _body_text(content, para_gap)
                 if body:
-                    sections.append(Section(current[0], current[1], current[2], body))
+                    # The heading's page to the last page holding its text: a
+                    # heading left at the foot of page 2 gives (2, 3).
+                    pages = (heading_page, max(line.page for line in content))
+                    sections.append(Section(current[0], current[1], current[2], body, pages))
             content.clear()
 
         i = 0
@@ -414,6 +418,7 @@ class PdfPolicyParser:
                 del open_headings[deeper]
             path = tuple(f"{sid} {t}" if "." in sid else f"{sid}. {t}" for _, (sid, t) in sorted(open_headings.items()))
             current = (section_id, title, path)
+            heading_page = line.page
 
         flush()
         if not sections:

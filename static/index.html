@@ -146,7 +146,8 @@ function renderAnswer(slot, body) {
   slot.append(el("div", "", body.answer || body.message || "Something went wrong."));
   for (const c of body.citations || []) {
     const cite = el("div", "cite");
-    cite.append(el("b", "", `${c.document} · v${c.version} · §${c.section} ${c.title}`));
+    const pages = !c.page_start ? "" : c.page_end > c.page_start ? ` · pp. ${c.page_start}–${c.page_end}` : ` · p. ${c.page_start}`;
+    cite.append(el("b", "", `${c.document} · v${c.version} · §${c.section} ${c.title}${pages}`));
     cite.append(el("span", "", c.excerpt));
     slot.append(cite);
   }

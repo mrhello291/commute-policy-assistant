@@ -121,6 +121,9 @@ class ChromaPolicyStore:
             "part": chunk.part,
             "flags": ",".join(chunk.flags),
             "contextual": chunk.contextual,
+            # Chroma metadata can't hold None or tuples: 0 means "no pages" (Markdown).
+            "page_start": chunk.pages[0] if chunk.pages else 0,
+            "page_end": chunk.pages[1] if chunk.pages else 0,
         }
 
     @staticmethod
@@ -139,4 +142,5 @@ class ChromaPolicyStore:
             text=text,
             flags=tuple(f for f in meta["flags"].split(",") if f),
             contextual=bool(meta.get("contextual", True)),
+            pages=(int(meta["page_start"]), int(meta["page_end"])) if meta.get("page_start") else None,
         )

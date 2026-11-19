@@ -37,6 +37,7 @@ class SectionChunker:
                         part=part,
                         text=text,
                         contextual=self._contextual,
+                        pages=section.pages,
                     )
                 )
         return chunks
