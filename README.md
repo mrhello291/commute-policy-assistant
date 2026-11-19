@@ -433,3 +433,22 @@ These are in [docs/EVALUATION.md](docs/EVALUATION.md#4-known-failures). In short
 (*"money cut from my salary"*) gets a safe "not covered" because retrieval misses the no-show section.
 Eligibility answers can omit a condition when the relevant sections rank below the top 3. The evaluation
 set is small (58 cases), so one case is about 2 points.
+
+Sign-in is a mock and has known gaps, left out on purpose because the brief asks for behaviour, not a
+realistic backend:
+
+- **No password.** Anyone who knows an employee ID can sign in as them. A real deployment would use the
+  client company's SSO, and this service would only verify that provider's tokens.
+- **The failed-login limit is per process and in memory.** A restart clears it, and several workers
+  would each count separately. Behind Docker's port mapping, or behind a proxy, every client shares one IP,
+  so ten bad sign-ins lock out everyone for five minutes. A real proxy setup would pass the client's IP
+  through and the service would trust that header only from the proxy.
+- **No "sign out everywhere"** and no admin route to end someone else's sessions. The token store
+  already supports it, but no route uses it yet.
+- **Removing a company from the directory deletes its policy history** at the next start. Bundled
+  policies are loaded again if the company returns. Versions uploaded through the API have to be
+  uploaded again.
+- **The demo page keeps the token in `localStorage`** so it can call the API. The page loads no
+  third-party scripts, but an injected script could read it.
+- **One process.** The token store, policy registry and ingestion lock all assume a single server
+  process, as noted under trade-offs.
