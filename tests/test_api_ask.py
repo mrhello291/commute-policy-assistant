@@ -1,6 +1,7 @@
 """The /v1/ask endpoint end to end, with a scripted LLM."""
 
 import json
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,6 +10,7 @@ from app.container import Container
 from app.llm.base import LLMTimeout
 from app.llm.fake import ScriptedLLM
 from app.main import create_app
+from tests.conftest import POLICY_DIR
 from tests.helpers import auth
 
 GOOD = json.dumps({"verdict": "answered", "answer": "Yes, after 7:30 PM.", "citations": ["S1"]})
@@ -88,3 +90,18 @@ def test_provider_outage_is_a_503_with_a_plain_message(make_client):
     body = response.json()
     assert body["status"] == "try_again" and "try again" in body["answer"].lower()
     assert "LLMTimeout" not in response.text
+
+
+def test_every_citation_can_be_found_in_the_policy_document(make_client):
+    """Employees trust an answer only if they can check it: document, section and excerpt must match the file."""
+    client, _ = make_client([json.dumps({"verdict": "answered", "answer": "Yes.", "citations": ["S1", "S2", "S3"]})])
+    body = client.post("/v1/ask", json={"question": "Do I get an escort?"}, headers=auth(client)).json()
+
+    source = (POLICY_DIR / "yamuna" / f"v{body['policy']['version']}.md").read_text()
+    flat = " ".join(source.split())
+    assert 1 <= len(body["citations"]) <= 3
+    for citation in body["citations"]:
+        assert f"title: {citation['document']}" in source
+        heading = rf"^#{{2,3}} {re.escape(citation['section'])}\.? {re.escape(citation['title'])}$"
+        assert re.search(heading, source, re.MULTILINE), citation
+        assert citation["excerpt"].removesuffix("…") in flat
