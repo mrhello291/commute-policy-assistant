@@ -6,7 +6,7 @@ answers. The README has the short version (design decision 3) and a hands-on wal
 covers how the pieces fit, what happens at every point where it can fail, and which test proves each
 claim.
 
-Code: `app/policies/` (parser, chunker, scanner, registry, ingestion, seed) and
+Code: `app/policies/` (PDF and Markdown parsers, chunker, scanner, registry, ingestion, seed) and
 `app/retrieval/vector_store.py`.
 
 ---
@@ -40,7 +40,7 @@ version at all if it never had one.**
 
 ```mermaid
 flowchart TD
-    IN["POST /v1/policies with a policy_admin token,<br/>or the startup seeder"] --> P["1 · Parse and validate the whole document in memory<br/>front matter, version, numbered sections, checksum"]
+    IN["POST /v1/policies with a policy_admin token,<br/>or the startup seeder"] --> P["1 · Parse and validate the whole document in memory<br/>PDF layout or Markdown, document control, version,<br/>numbered sections, checksum"]
     P --> O{{"2 · Document's company = token's company?"}}
     O -->|"yes, take the ingestion lock"| S{{"3 · Same version and checksum already live?"}}
     S -->|"no"| B["4 · SQLite: row v2 = staging<br/>refused unless newer than every version ever live"]
@@ -182,7 +182,7 @@ Two details from the code:
 2. **Reconcile:** every `staging` row is an ingest that never finished, so mark it `failed`. Then, for
    every company collection in Chroma, delete each chunk whose version isn't the live one (all of them
    if nothing is live).
-3. **Seed** `data/policies/<company>/v*.md` in version order. This is safe to run again: the live
+3. **Seed** `data/policies/<company>/v*.pdf` in version order. This is safe to run again: the live
    version is a no-op, older versions get a 409 that the seeder logs and skips, and one broken file
    doesn't stop the other companies loading.
 
@@ -335,6 +335,9 @@ that writes half a batch and then raises "disk full".
 | An admin can't upload for another company, and the live version is unchanged | `test_api_policies.py::test_admin_cannot_upload_for_another_company` |
 | Through the API, a failed ingest says the old version is still in use | `test_api_policies.py::test_failed_ingest_reports_that_old_version_is_kept` |
 | Restarting doesn't create new versions | `test_seed.py::test_restart_is_idempotent` |
+| Each sample PDF reads back as exactly its Markdown source: every section number, title, path and body | `test_sample_pdfs.py::test_pdf_reads_back_as_its_markdown_source` |
+| PDF layout problems, one per test: headers and footers, page breaks, numbered lists, tables, contents pages, wrapped headings | `test_pdf_parser.py` |
+| Scanned, password-protected, damaged and non-PDF files are refused with the reason | `test_pdf_parser.py`, `test_api_policies.py::test_a_damaged_pdf_is_refused_and_the_live_version_kept` |
 
 ---
 
@@ -357,5 +360,9 @@ that writes half a batch and then raises "disk full".
 - **No rollback endpoint.** To go back, re-upload the old text under a new version number. This is
   deliberate: versions only move forward, so the registry history is an audit trail of what was live
   and when.
+- **PDFs are read with layout rules.** Scanned pages are refused rather than OCR'd, and two-column
+  layouts aren't detected. How the parser finds sections, and everything it refuses, is in
+  [README, design decision 4](../README.md#4-reading-policy-pdfs-by-layout-refusing-what-cant-be-cited).
+  Step 1 is the only step that knows the format: everything after it sees the same `PolicyDocument`.
 - **The original document isn't stored.** Only parsed chunks are kept, so a reviewer can't download
   "exactly what the admin uploaded". The checksum is recorded, so a copy can be verified against it.
