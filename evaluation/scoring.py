@@ -11,6 +11,9 @@ A case passes when every check that applies to it passes:
              retired-version values, injected text)
 - citation   an answered case cites at least one gold section, and every
              citation comes from the caller's own company's document
+- citation_valid  every citation matches the policy PDF: section, title,
+             excerpt and page numbers (see citation_check.py; checked when the
+             runner has the source PDFs)
 - isolation  every retrieved chunk belongs to the caller's company
 - budget     at most 2 LLM calls and at most 3 citations
 
@@ -47,7 +50,8 @@ def first_gold_rank(gold: list[str], retrieved_sections: list[str]) -> int | Non
     return None
 
 
-def score_case(case: dict, actual: dict, llm_available: bool = True) -> CaseScore:
+def score_case(case: dict, actual: dict, llm_available: bool = True, citations=None) -> CaseScore:
+    """`citations` is a CitationReport from citation_check, when the source PDFs are at hand."""
     expected = case["expected"]
     company = case["company"]
     answer = actual.get("answer", "")
@@ -91,6 +95,11 @@ def score_case(case: dict, actual: dict, llm_available: bool = True) -> CaseScor
         if not checks["citation"]:
             notes.append(f"cited {cited or 'nothing'}, gold is {gold}")
 
+    if citations is not None and actual.get("citations"):
+        checks["citation_valid"] = not citations.problems
+        notes.extend(f"citation wrong: {p}" for p in citations.problems)
+        notes.extend(f"fact /{p}/ is not in any cited section" for p in citations.unsupported)
+
     if gold and rank is None and actual.get("retrieved_sections"):
         notes.append("no gold section in the top 3")
     return CaseScore(all(checks.values()), checks, notes, rank)
@@ -118,6 +127,18 @@ def summarise(rows: list[dict]) -> dict:
         1 for row in rows if not (row["score"].checks.get("no_leak", True) and row["score"].checks["isolation"])
     )
 
+    reports = [row["citations"] for row in rows if row.get("citations") is not None]
+    total = sum(r.total for r in reports)
+    facts = sum(r.facts_checked for r in reports)
+    citation_summary = {
+        "total": total,
+        "verified_against_pdf": sum(r.verified for r in reports),
+        "on_gold_section": sum(r.on_gold for r in reports),
+        "precision": round(sum(r.on_gold for r in reports) / total, 3) if total else None,
+        "facts_checked": facts,
+        "facts_supported_by_citations": sum(r.facts_supported for r in reports),
+    }
+
     return {
         "cases": len(rows),
         "passed": sum(row["score"].passed for row in rows),
@@ -131,6 +152,7 @@ def summarise(rows: list[dict]) -> dict:
             "hit_at_3": round(sum(1 for r in ranked if r is not None) / len(ranked), 3) if ranked else None,
             "mrr": round(sum(1 / r for r in ranked if r) / len(ranked), 3) if ranked else None,
         },
+        "citations": citation_summary,
         "leaks": leaks,
         "llm_calls": {"max": max(calls, default=0), "mean": round(statistics.mean(calls), 2) if calls else 0},
         "latency_ms": {

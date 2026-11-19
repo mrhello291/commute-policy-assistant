@@ -29,6 +29,7 @@ from app.answering.service import AnswerResult
 from app.auth import Principal, Role
 from app.config import EmbedderKind, LLMProvider, RetrieverKind, Settings
 from app.container import Container
+from evaluation.citation_check import PdfCitationChecker
 from evaluation.scoring import score_case, summarise
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -125,6 +126,7 @@ def run(args: argparse.Namespace) -> dict:
     with tempfile.TemporaryDirectory(prefix="policy-eval-") as tmp:
         settings = build_settings(args, Path(tmp))
         container = Container(settings)
+        checker = PdfCitationChecker(settings.policy_seed_dir)
         container.startup()
         llm_available = container.llm.name != "none"
         print(
@@ -137,8 +139,17 @@ def run(args: argparse.Namespace) -> dict:
         for i, case in enumerate(cases, start=1):
             result, harness_notes = ask_with_backoff(container, case)
             actual = to_actual(result)
-            score = score_case(case, actual, llm_available)
-            rows.append({"case": case, "actual": actual, "score": score, "notes": harness_notes + score.notes})
+            citations = checker.check(case, actual)
+            score = score_case(case, actual, llm_available, citations)
+            rows.append(
+                {
+                    "case": case,
+                    "actual": actual,
+                    "score": score,
+                    "citations": citations,
+                    "notes": harness_notes + score.notes,
+                }
+            )
             mark = "PASS" if score.passed else "FAIL"
             print(
                 f"[{i:2}/{len(cases)}] {mark} {case['id']:8} {actual['status']:13} "
@@ -182,6 +193,13 @@ def print_summary(summary: dict, out: Path) -> None:
     for name, c in summary["by_category"].items():
         print(f"  {name:20} {c['passed']}/{c['cases']}")
     print(f"retrieval  hit@1={r['hit_at_1']}  hit@3={r['hit_at_3']}  mrr={r['mrr']}")
+    c = summary["citations"]
+    if c["total"]:
+        print(
+            f"citations  {c['verified_against_pdf']}/{c['total']} match the PDF  "
+            f"{c['on_gold_section']}/{c['total']} on an expected section  "
+            f"facts in cited text {c['facts_supported_by_citations']}/{c['facts_checked']}"
+        )
     print(f"leaks      {summary['leaks']}")
     print(f"llm calls  max={summary['llm_calls']['max']}  mean={summary['llm_calls']['mean']}")
     lat = summary["latency_ms"]
