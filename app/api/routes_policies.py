@@ -1,24 +1,20 @@
 """Policy administration: upload a new version, see which one is live.
 
 The company is always the caller's own, taken from their token. An admin
-uploading a document whose front matter names another company is refused.
+uploading a document whose document-control block names another company is
+refused.
 """
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends, File, UploadFile
+from pydantic import BaseModel
 
 from app.api.deps import get_container, get_principal, require_role
 from app.auth import Principal, Role
 from app.container import Container
-from app.policies.parser import MAX_DOCUMENT_BYTES
+from app.errors import PolicyFormatError
+from app.policies.pdf_parser import MAX_PDF_BYTES
 
 router = APIRouter(prefix="/v1/policies", tags=["policies"])
-
-
-class PolicyUpload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    content: str = Field(min_length=1, max_length=MAX_DOCUMENT_BYTES, description="The policy as Markdown")
 
 
 class UploadResult(BaseModel):
@@ -40,11 +36,15 @@ class ActivePolicy(BaseModel):
 
 @router.post("", response_model=UploadResult)
 def upload_policy(
-    body: PolicyUpload,
+    file: UploadFile = File(description="The policy as a PDF. Markdown with front matter is also accepted."),
     principal: Principal = Depends(require_role(Role.POLICY_ADMIN)),
     container: Container = Depends(get_container),
 ) -> UploadResult:
-    report = container.ingestion.ingest(body.content, acting_company=principal.company_id)
+    # The format is read from the content, not the file name or content type.
+    data = file.file.read(MAX_PDF_BYTES + 1)
+    if len(data) > MAX_PDF_BYTES:
+        raise PolicyFormatError(f"the file is larger than {MAX_PDF_BYTES // 1_000_000} MB")
+    report = container.ingestion.ingest(data, acting_company=principal.company_id)
     return UploadResult(
         company_id=report.company_id,
         version=report.version,
