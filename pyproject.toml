@@ -10,6 +10,7 @@ dependencies = [
     "pydantic-settings>=2.4",
     "pyjwt>=2.9",
     "pyyaml>=6",
+    "pdfplumber>=0.11",
     "chromadb==1.5.9",
     "rank-bm25>=0.2.2",
     "groq>=1.0",
@@ -20,6 +21,8 @@ dependencies = [
 dev = [
     "pytest>=8",
     "httpx>=0.27",
+    # Draws the sample policy PDFs and the PDFs the parser tests read.
+    "reportlab>=4.2",
     "ruff>=0.6",
 ]
 
