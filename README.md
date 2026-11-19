@@ -47,10 +47,11 @@ All settings are environment variables. They are read from `.env` and defined in
 | `EVIDENCE_MIN_SIMILARITY` | `0.25` | Below this, "not covered" without calling the LLM |
 | `MAX_LLM_CALLS` / `MAX_CITED_CHUNKS` | `2` / `3` | Hard per-question limits (validated, can't be raised past the brief) |
 | `REQUEST_DEADLINE_S` / `LLM_TIMEOUT_S` / `RETRIEVAL_TIMEOUT_S` | `2.8` / `2.2` / `0.8` | Time budget per question |
-| `JWT_SECRET` | dev value | Signs the tokens issued at login. Change outside dev |
+| `JWT_SECRET` | dev value | Signs the tokens issued at login. With `APP_ENV=prod` the service refuses to start on the dev value |
 | `JWT_TTL_MINUTES` | `480` | How long a sign-in lasts (one shift) |
-| `EMPLOYEE_DIRECTORY` | `data/employees.json` | The mock HR directory login checks against |
+| `EMPLOYEE_DIRECTORY` | `data/employees.json` | The mock HR directory login checks against. Edits apply without a restart |
 | `MAX_SESSIONS_PER_EMPLOYEE` | `5` | Signing in on one more device ends the oldest session |
+| `LOGIN_MAX_FAILURES` / `LOGIN_FAILURE_WINDOW_S` | `10` / `300` | Failed sign-ins allowed per client in the window, then HTTP 429 |
 | `TOKEN_RETENTION_DAYS` | `30` | Expired and revoked token records are kept this long, then purged at startup |
 | `APP_ENV` | `dev` | `dev` lists the sample accounts at `GET /dev/accounts` and allows the session cookie over plain HTTP |
 
@@ -114,6 +115,7 @@ Sign-in errors have the same `{status, message, request_id}` shape:
 | 401 | `unknown_company` | No such company |
 | 401 | `unknown_employee` | No employee with that ID at that company. The same answer whether the ID is unknown or belongs to another company |
 | 403 | `account_inactive` | The employee has left (`"active": false` in the directory) |
+| 429 | `too_many_attempts` | Too many failed sign-ins from this client. `Retry-After` says how long to wait |
 | 401 | `unauthorized` | Missing, forged, expired, logged-out or superseded token, or the employee has since left or changed role |
 | 503 | `auth_unavailable` | The token store can't be read. Requests fail closed, with `Retry-After` |
 
@@ -244,6 +246,14 @@ The contradictions at a glance (full table in the doc):
   take effect immediately, not when the JWT expires. The store is on the data volume, so sessions survive
   a crash or restart (tested with `docker compose kill`). If it can't be read, requests fail closed
   with a 503.
+- **Guessing IDs is slowed down.** Each client gets 10 failed sign-ins per 5 minutes, then a 429 with
+  `Retry-After`. Successful sign-ins don't clear the count, so a known ID can't reset it. The counts are
+  in memory, per process.
+- **The directory is live, and it decides who the clients are.** Edits to `data/employees.json` apply on
+  the next request (compose mounts `data/` read-only for this). A broken edit is logged and ignored, and
+  the last good version keeps serving. At startup, a company that is no longer in the directory has its
+  policy versions and chunks removed, and its seed folder is skipped, so a former client can't linger
+  as a live policy or as an "other company" name.
 - **The cookie only opens pages.** Login also sets the token as an `HttpOnly`, `SameSite=Strict` cookie.
   It decides whether a browser may open `/`, `/docs` and `/redoc`, nothing more: the API reads only the
   `Authorization` header, so a forged cross-site request carries nothing the API accepts.
