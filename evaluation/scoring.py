@@ -6,7 +6,8 @@ always gets the same score and a run costs nothing extra.
 A case passes when every check that applies to it passes:
 
 - status     the outcome (answered / not_covered / other_company) is the expected one
-- facts      every `must_include` pattern appears in the answer
+- facts      every `must_include` pattern is stated in the answer, not negated
+             ("you will not get a written warning" does not state "warning")
 - no_leak    no `must_not_include` pattern appears (other companies' values,
              retired-version values, injected text)
 - citation   an answered case cites at least one gold section, and every
@@ -49,6 +50,32 @@ class CaseScore:
 
 def _matches(pattern: str, text: str) -> bool:
     return re.search(pattern, text, re.IGNORECASE) is not None
+
+
+# Words that turn the fact after them into its opposite: "you do not need L2 approval".
+NEGATORS = frozenset(
+    "not no never cannot can't won't isn't aren't doesn't don't didn't wasn't weren't without nor neither".split()
+)
+NEGATION_WINDOW = 4
+_CLAUSE_BREAK = re.compile(r"[.,;:!?()\n–—]")
+
+
+def negated(text: str, start: int) -> bool:
+    """Whether one of the few words before `start`, in the same clause, is a negator.
+
+    A heuristic, kept small on purpose: it only looks back within the clause
+    ("No, you need L2 approval" is not negated), and only a few words. When
+    the expected fact is itself a "no", the pattern carries the negation
+    ("not provided"), and the words before it are what is checked.
+    """
+    clause = _CLAUSE_BREAK.split(text[:start])[-1]
+    words = re.findall(r"[a-z'’-]+", clause.lower().replace("’", "'"))
+    return any(word in NEGATORS for word in words[-NEGATION_WINDOW:])
+
+
+def stated(pattern: str, text: str) -> bool:
+    """The pattern appears at least once where the answer asserts it rather than denies it."""
+    return any(not negated(text, m.start()) for m in re.finditer(pattern, text, re.IGNORECASE))
 
 
 def first_gold_rank(gold: list[str], retrieved_sections: list[str]) -> int | None:
@@ -109,9 +136,9 @@ def score_case(
         notes.append(f"status {actual.get('status')} != expected {expected['status']}")
 
     if expected["status"] == "answered" and checks["status"]:
-        missing = [p for p in expected["must_include"] if not _matches(p, answer)]
+        missing = [p for p in expected["must_include"] if not stated(p, answer)]
         checks["facts"] = not missing
-        notes.extend(f"missing fact /{p}/" for p in missing)
+        notes.extend(f"fact /{p}/ is only denied" if _matches(p, answer) else f"missing fact /{p}/" for p in missing)
 
         cited = [c["section"] for c in actual.get("citations", [])]
         own_docs = all(c.get("company_id", company) == company for c in actual.get("citations", []))

@@ -1,4 +1,6 @@
-from evaluation.scoring import first_gold_rank, percentile, score_case, summarise
+import pytest
+
+from evaluation.scoring import first_gold_rank, percentile, score_case, stated, summarise
 
 CASE = {
     "id": "x",
@@ -36,6 +38,30 @@ def test_correct_answer_passes():
 def test_missing_fact_fails():
     score = score_case(CASE, actual(answer="An escort is provided at night."))
     assert not score.passed and not score.checks["facts"]
+
+
+@pytest.mark.parametrize(
+    ("answer", "pattern", "expected"),
+    [
+        ("Two no-shows lead to a written warning.", "warning", True),
+        ("You will not get a written warning.", "warning", False),
+        ("You do not need L2 approval.", "L2", False),
+        ("No, you need approval from your L2 manager.", "L2", True),
+        ("Yes, but without L2 approval it is not booked.", "L2", False),
+        ("It is not free; each trip is capped at INR 600.", r"\b600\b", True),
+        ("Company transport is not provided on Saturdays.", "not provided", True),
+        ("You don't need anything; L2 approval is automatic.", "L2", True),
+        ("You don't need HR approval, only L2 approval.", "L2", True),
+    ],
+)
+def test_a_fact_counts_only_where_the_answer_states_it(answer, pattern, expected):
+    assert stated(pattern, answer) is expected
+
+
+def test_a_denied_fact_fails_and_says_so():
+    score = score_case(CASE, actual(answer="The escort does not start at 7:30 PM."))
+    assert not score.checks["facts"]
+    assert any("only denied" in note for note in score.notes)
 
 
 def test_other_companys_value_is_a_leak():
