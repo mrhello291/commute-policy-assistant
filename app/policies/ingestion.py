@@ -81,13 +81,18 @@ class IngestionService:
         """Call `listener(company_id)` whenever a company's live version changes."""
         self._listeners.append(listener)
 
-    def ingest(self, raw: bytes | str, acting_company: str | None = None) -> IngestionReport:
+    def ingest(
+        self, raw: bytes | str, acting_company: str | None = None, acting_company_name: str | None = None
+    ) -> IngestionReport:
         """Ingest one policy document: PDF bytes, or Markdown.
 
         `acting_company` is the company of the admin doing the upload, taken
-        from their token. It is None only for the trusted seed loader.
+        from their token. It is None only for the trusted seed loader. A PDF
+        that doesn't name its company is taken to be the uploader's (with
+        `acting_company_name` as its name); one that names another company is
+        refused.
         """
-        doc = self._parser.parse(raw)
+        doc = self._parser.parse(raw, company_id=acting_company, company_name=acting_company_name)
         if acting_company is not None and doc.company_id != acting_company:
             raise PermissionDenied("policy belongs to a different company")
         with self._lock:

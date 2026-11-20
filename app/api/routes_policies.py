@@ -1,8 +1,8 @@
 """Policy administration: upload a new version, see which one is live.
 
-The company is always the caller's own, taken from their token. An admin
-uploading a document whose document-control block names another company is
-refused.
+The company is always the caller's own, taken from their token. A document
+that doesn't name its company is filed under the caller's; one whose
+document-control block names another company is refused.
 """
 
 from fastapi import APIRouter, Depends, File, UploadFile
@@ -44,7 +44,12 @@ def upload_policy(
     data = file.file.read(MAX_PDF_BYTES + 1)
     if len(data) > MAX_PDF_BYTES:
         raise PolicyFormatError(f"the file is larger than {MAX_PDF_BYTES // 1_000_000} MB")
-    report = container.ingestion.ingest(data, acting_company=principal.company_id)
+    company = container.auth.directory.company(principal.company_id)
+    report = container.ingestion.ingest(
+        data,
+        acting_company=principal.company_id,
+        acting_company_name=company.company_name if company else None,
+    )
     return UploadResult(
         company_id=report.company_id,
         version=report.version,

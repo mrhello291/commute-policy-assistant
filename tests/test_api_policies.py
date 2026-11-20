@@ -73,6 +73,26 @@ def test_a_damaged_pdf_is_refused_and_the_live_version_kept(client):
     assert client.get("/v1/policies/active", headers=auth(client)).json()["version"] == 2
 
 
+def without_company(version: int) -> bytes:
+    """A policy PDF as most companies write one: no company or company ID in it."""
+    from tests.test_pdf_parser import Pdf
+
+    pdf = Pdf().title("Employee Transport Policy")
+    for text in ("Document ID: transport-policy", f"Version: {version}", "Effective from: 1 December 2026"):
+        pdf.line(text)
+    return pdf.heading("1. Scope").para("Every employee on a rostered shift.").bytes()
+
+
+def test_a_pdf_that_names_no_company_is_filed_under_the_uploaders(client):
+    response = upload(client, without_company(3), auth(client, role="policy_admin"))
+
+    assert response.status_code == 200 and response.json()["company_id"] == "yamuna"
+    live = client.get("/v1/policies/active", headers=auth(client)).json()
+    assert (live["version"], live["company_name"]) == (3, "Yamuna Software Services")
+    # The other companies are untouched.
+    assert client.get("/v1/policies/active", headers=auth(client, "gomti")).json()["version"] == 1
+
+
 def test_markdown_is_still_accepted(client):
     v3 = YAMUNA_V2.replace("version: 2", "version: 3")
     response = upload(client, v3, auth(client, role="policy_admin"), name="v3.md")

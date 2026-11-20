@@ -362,3 +362,28 @@ def test_roman_looking_words_are_not_headings():
 def test_unnumbered_headings_are_still_refused():
     with pytest.raises(PolicyFormatError, match="no numbered section headings"):
         parse(Pdf().front().heading("Scope").para("All staff."))
+
+
+WITHOUT_COMPANY = CONTROL[2:]
+
+
+def test_a_document_without_a_company_takes_the_uploaders():
+    data = Pdf().front(WITHOUT_COMPANY).heading("1. Scope").para("All staff.").bytes()
+
+    doc = PdfPolicyParser().parse(data, company_id="kaveri", company_name="Kaveri Foods")
+
+    assert (doc.company_id, doc.company_name, doc.version) == ("kaveri", "Kaveri Foods", 1)
+
+
+def test_a_document_naming_its_company_keeps_it_whoever_uploads():
+    data = Pdf().front().heading("1. Scope").para("All staff.").bytes()
+
+    doc = PdfPolicyParser().parse(data, company_id="gomti", company_name="Gomti Logistics")
+
+    # The caller compares this with the uploader's company and refuses the upload.
+    assert (doc.company_id, doc.company_name) == ("kaveri", "Kaveri Foods")
+
+
+def test_without_a_company_in_the_document_or_an_uploader_it_is_refused():
+    with pytest.raises(PolicyFormatError, match="missing: Company ID, Company"):
+        parse(Pdf().front(WITHOUT_COMPANY).heading("1. Scope").para("All staff."))

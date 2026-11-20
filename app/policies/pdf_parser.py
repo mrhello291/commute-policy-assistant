@@ -11,7 +11,8 @@ What it expects (what HR policy PDFs normally look like):
 
 - a document-control block on the first page, as a table or as
   `Label: value` lines: Company, Company ID, Document ID, Version,
-  Effective from (and optionally Title);
+  Effective from (and optionally Title). Company and Company ID may be
+  left out of an upload: the uploader's company is used;
 - the title as the largest text on the first page;
 - numbered headings (`4. Night-shift travel`, `4.2 Security escort`) set in
   bold or in a larger size than the body text. `Section 4:`, `Clause 4 -`,
@@ -147,10 +148,13 @@ class _Page:
 
 
 class PdfPolicyParser:
-    def parse(self, data: bytes) -> PolicyDocument:
-        return _parse_cached(bytes(data))
+    def parse(self, data: bytes, company_id: str | None = None, company_name: str | None = None) -> PolicyDocument:
+        """`company_id` and `company_name` are the uploader's company, used when
+        the document doesn't name one. A document that does name a company
+        keeps it, and the caller checks it against the uploader."""
+        return _parse_cached(bytes(data), company_id, company_name)
 
-    def _parse(self, data: bytes) -> PolicyDocument:
+    def _parse(self, data: bytes, company_id: str | None = None, company_name: str | None = None) -> PolicyDocument:
         if not data:
             raise PolicyFormatError("document is empty")
         if len(data) > MAX_PDF_BYTES:
@@ -173,7 +177,8 @@ class PdfPolicyParser:
                 "no numbered section headings found; headings must start with a section number "
                 "('4.2 Security escort') and be bold or larger than the body text"
             )
-        meta = self._document_control(lines[:first_heading], body_size, pdf_title)
+        fallback = {"company_id": company_id, "company_name": company_name}
+        meta = self._document_control(lines[:first_heading], body_size, pdf_title, fallback)
         sections = self._sections(lines[first_heading:], body_size)
 
         return PolicyDocument(
@@ -338,7 +343,7 @@ class PdfPolicyParser:
 
     # -- document control --------------------------------------------------
 
-    def _document_control(self, front: list[_Line], body_size: float, pdf_title: str) -> dict:
+    def _document_control(self, front: list[_Line], body_size: float, pdf_title: str, fallback: dict) -> dict:
         found: dict[str, str] = {}
 
         def take(label: str, value: str) -> None:
@@ -371,6 +376,12 @@ class PdfPolicyParser:
                     found["title"] = " ".join(parts)
             if "title" not in found and pdf_title:
                 found["title"] = pdf_title
+
+        # Most real policies don't print a company ID; the uploader's company
+        # stands in for it (and for the name, if that's missing too).
+        for key, value in fallback.items():
+            if value and not found.get(key):
+                found[key] = value
 
         missing = [_FIELD_NAMES[f] for f in _FIELD_NAMES if not found.get(f)]
         if missing:
@@ -475,11 +486,11 @@ class PdfPolicyParser:
 
 
 @functools.lru_cache(maxsize=16)
-def _parse_cached(data: bytes) -> PolicyDocument:
+def _parse_cached(data: bytes, company_id: str | None, company_name: str | None) -> PolicyDocument:
     """Layout analysis costs about 0.1 s a page and every start re-reads the
     seed files, so a document already read is not read again. The result is
     frozen, so sharing it is safe; refusals are raised again each time."""
-    return PdfPolicyParser()._parse(data)
+    return PdfPolicyParser()._parse(data, company_id, company_name)
 
 
 def _body_text(lines: list[_Line], para_gap: float) -> str:
@@ -688,11 +699,15 @@ class PolicyParser:
         self._pdf = PdfPolicyParser()
         self._markdown = MarkdownPolicyParser()
 
-    def parse(self, data: bytes | str) -> PolicyDocument:
+    def parse(
+        self, data: bytes | str, company_id: str | None = None, company_name: str | None = None
+    ) -> PolicyDocument:
+        """For a PDF, `company_id`/`company_name` fill in a company the document
+        doesn't name. Markdown front matter must always name it."""
         if isinstance(data, str):
             return self._markdown.parse(data)
         if data.lstrip()[:5] == b"%PDF-":
-            return self._pdf.parse(data)
+            return self._pdf.parse(data, company_id, company_name)
         try:
             text = data.decode("utf-8-sig")
         except UnicodeDecodeError as exc:
