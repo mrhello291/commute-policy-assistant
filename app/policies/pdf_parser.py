@@ -14,7 +14,8 @@ What it expects (what HR policy PDFs normally look like):
   Effective from (and optionally Title);
 - the title as the largest text on the first page;
 - numbered headings (`4. Night-shift travel`, `4.2 Security escort`) set in
-  bold or in a larger size than the body text.
+  bold or in a larger size than the body text. `Section 4:`, `Clause 4 -`,
+  `4.0` and roman `IV.` are read as section 4.
 
 The steps, and the PDF problem each one handles:
 
@@ -67,7 +68,12 @@ MAX_PAGES = 150
 MAX_SECTION_DEPTH = 4
 
 # Section number then title: "4. Night-shift travel", "4.2 Security escort".
-_NUMBERED = re.compile(r"^(\d{1,3}(?:\.\d{1,3}){0,5})\.?\s+(\S.*)$")
+_NUMBERED = re.compile(r"^(\d{1,3}(?:\.\d{1,3}){0,5})\.?(?:\s*[:)\-–—])?\s+(\S.*)$")
+# The other ways policies number their top-level headings: "Section 4: ...",
+# "Clause 4 - ...", "IV. ...". Read as the plain number they stand for.
+_HEADING_WORD = re.compile(r"^(?:section|clause|article)\s+(?=\d|[IVXL]+\b)", re.IGNORECASE)
+_ROMAN_HEADING = re.compile(r"^([IVXL]{1,7})(?:\.|:|\)|\s+[\-–—])\s+(\S.*)$")
+_ROMAN = re.compile(r"^(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$")
 # Table-of-contents entry: "4.2 Security escort ......... 7"
 _TOC_ENTRY = re.compile(r"(\.\s*){4,}\s*\d+$|\.{4,}\s*\d+$")
 _PAGE_NUMBER = re.compile(r"^(page\s*)?\d+(\s*(of|/)\s*\d+)?$|^[-–]\s*\d+\s*[-–]$", re.IGNORECASE)
@@ -309,13 +315,13 @@ class PdfPolicyParser:
     def _heading(self, line: _Line, body_size: float) -> tuple[str, str] | None:
         if line.is_table:
             return None
-        match = _NUMBERED.match(line.text)
-        if match is None or _TOC_ENTRY.search(line.text):
+        numbered = _section_number(line.text)
+        if numbered is None or _TOC_ENTRY.search(line.text):
             return None
         stands_out = line.size >= body_size + 0.75 or (line.bold >= 0.8 and line.size >= body_size - 0.5)
         if not stands_out:
             return None
-        return match.group(1), match.group(2).strip()
+        return numbered
 
     def _continues_heading(self, heading: _Line, line: _Line, body_size: float) -> bool:
         """A long heading wrapped onto a second line in the same style."""
@@ -326,7 +332,7 @@ class PdfPolicyParser:
             and line.bold >= 0.8 * heading.bold
             and (line.size >= body_size + 0.75 or line.bold >= 0.8)
             and line.top - heading.bottom < 0.5 * heading.size
-            and not _NUMBERED.match(line.text)
+            and _section_number(line.text) is None
             and not _BULLET.match(line.text)
         )
 
@@ -427,7 +433,12 @@ class PdfPolicyParser:
             if depth > 1:
                 parent = open_headings.get(depth - 1)
                 if parent is None or not section_id.startswith(parent[0] + "."):
-                    raise PolicyFormatError(f"section {section_id} is not inside its parent section")
+                    expected = section_id.rsplit(".", 1)[0]
+                    raise PolicyFormatError(
+                        f"section {section_id} is not inside its parent section: no heading numbered {expected} "
+                        "comes before it (headings are read when numbered like '4. Title' or '4.2 Title'; "
+                        "'Section 4: Title', '4.0 Title' and 'IV. Title' are read as 4)"
+                    )
             seen.add(section_id)
 
             flush()
@@ -542,6 +553,37 @@ def _table_text(rows: list[list[str]]) -> str:
             "; ".join(f"{h}: {c}" if h else c for h, c in zip(header, row, strict=True) if c) for row in rows[1:]
         )
     return "\n".join(" ".join(c for c in row if c) for row in rows)
+
+
+def _section_number(text: str) -> tuple[str, str] | None:
+    """The section number and title a heading line starts with, if any.
+
+    "4.2 Escort" and "4. Night travel" are the usual forms. "Section 4:",
+    "Clause 4 -", "4.0" and "IV." are read as 4, so the citation is the plain
+    number with the heading's title.
+    """
+    word = _HEADING_WORD.match(text)
+    if word:
+        text = text[word.end() :]
+    roman = _ROMAN_HEADING.match(text) or (re.match(r"^([IVXL]{1,7})\s+(\S.*)$", text) if word else None)
+    if roman and _ROMAN.match(roman.group(1)):
+        return str(_roman_value(roman.group(1))), roman.group(2).strip()
+    match = _NUMBERED.match(text)
+    if match is None:
+        return None
+    section_id = match.group(1)
+    if re.fullmatch(r"\d+\.0", section_id):
+        section_id = section_id[:-2]
+    return section_id, match.group(2).strip()
+
+
+def _roman_value(numeral: str) -> int:
+    values = {"I": 1, "V": 5, "X": 10, "L": 50}
+    total = 0
+    for i, ch in enumerate(numeral):
+        value = values[ch]
+        total += -value if i + 1 < len(numeral) and values[numeral[i + 1]] > value else value
+    return total
 
 
 def _symbol_bullet(chars: list[dict]) -> bool:

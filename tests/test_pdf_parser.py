@@ -299,7 +299,7 @@ def test_duplicate_section_number_is_refused():
 def test_subsection_outside_its_parent_is_refused():
     pdf = Pdf().front().heading("1. Scope").para("A.").heading("2.1 Booking", size=11).para("B.")
 
-    with pytest.raises(PolicyFormatError, match="not inside its parent"):
+    with pytest.raises(PolicyFormatError, match="not inside its parent section: no heading numbered 2 comes"):
         parse(pdf)
 
 
@@ -319,3 +319,46 @@ def test_a_small_dot_far_from_the_text_is_not_a_bullet():
     pdf.para("A trip is one pickup or drop.")
 
     assert bodies(parse(pdf))["1"] == "A trip is one pickup or drop."
+
+
+@pytest.mark.parametrize(
+    "top, sub",
+    [
+        ("Section 2: Booking", "2.1 Cut-off"),
+        ("Clause 2 - Booking", "2.1 Cut-off"),
+        ("2.0 Booking", "2.1 Cut-off"),
+        ("II. Booking", "2.1 Cut-off"),
+        ("2) Booking", "2.1 Cut-off"),
+    ],
+)
+def test_other_heading_styles_are_read_as_plain_numbers(top, sub):
+    pdf = Pdf().front().heading("1. Scope").para("All staff.")
+    pdf.heading(top).para("Book in the app.").heading(sub, size=11).para("Three hours before.")
+
+    doc = parse(pdf)
+
+    assert [(s.section_id, s.title) for s in doc.sections] == [
+        ("1", "Scope"),
+        ("2", "Booking"),
+        ("2.1", "Cut-off"),
+    ]
+    assert doc.sections[2].path == ("2. Booking", "2.1 Cut-off")
+
+
+@pytest.mark.parametrize("numeral, number", [("I", "1"), ("IV", "4"), ("IX", "9"), ("XIV", "14"), ("XL", "40")])
+def test_roman_numeral_headings(numeral, number):
+    doc = parse(Pdf().front().heading(f"{numeral}. Scope").para("All staff."))
+
+    assert doc.sections[0].section_id == number
+
+
+def test_roman_looking_words_are_not_headings():
+    doc = parse(Pdf().front().heading("1. Scope").para("All staff.").heading("IVX. Not a numeral").para("Text."))
+
+    assert [s.section_id for s in doc.sections] == ["1"]
+    assert "IVX. Not a numeral" in doc.sections[0].body
+
+
+def test_unnumbered_headings_are_still_refused():
+    with pytest.raises(PolicyFormatError, match="no numbered section headings"):
+        parse(Pdf().front().heading("Scope").para("All staff."))
