@@ -455,6 +455,42 @@ The contradictions at a glance (full table in the doc):
 ## Design decisions
 
 ### 1. Isolation is structural, not a prompt instruction
+
+Seven layers stand between a question and another company's policy. The first five are code and data
+access, so they hold whatever the model does; the model only ever sees what got through them.
+
+```mermaid
+flowchart TB
+    Q(["Question + JWT"]) --> L1
+    L1["<b>① Company from the signed token only</b><br/>the /v1/ask body accepts only question"] --> L2
+    L2["<b>② Another client named in the question?</b><br/>checked in code, before retrieval"] --> L3
+    L3["<b>③ One Chroma collection per company</b><br/>the name comes from the token's company,<br/>so a cross-company query can't be written"] --> L4
+    L4["<b>④ Live version filter</b><br/>where version = the registry's live version,<br/>so staged, retired or crashed versions are invisible"] --> L5
+    L5["<b>⑤ Every result re-checked</b><br/>ensure_same_tenant: company and version"] --> L6
+    L6["<b>⑥ The model sees only those ≤ 3 excerpts</b><br/>no tools, strict JSON reply:<br/>a hijacked model has nothing foreign to leak"] --> L7
+    L7["<b>⑦ Output check</b><br/>no other client's name, no fence marker,<br/>no instruction-like text"] --> A(["Answer from the caller's own company,<br/>live version only"])
+
+    L1 -->|"company_id, version or<br/>filter in the body"| R1["422<br/>before any work"]
+    L2 -->|"'What's Gomti's<br/>no-show penalty?'"| R2["other_company<br/>0 LLM calls"]
+    L5 -->|"a chunk from another<br/>company or version"| R5["try_again<br/>fails closed, never a leak"]
+    L7 -->|"rejected"| R7["one repair call,<br/>then unanswerable"]
+
+    classDef code fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+    classDef data fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#451a03
+    classDef model fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#500724
+    classDef out fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#2e1065
+    classDef ok fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#052e16
+    classDef stop fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#431407
+    classDef client fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#1e1b4b
+    class Q client
+    class L1,L2 code
+    class L3,L4,L5 data
+    class L6 model
+    class L7 out
+    class A ok
+    class R1,R2,R5,R7 stop
+```
+
 - **Identity comes from the JWT only.** `company_id` is a signed claim. The `/v1/ask` body accepts only
   `question` (`extra="forbid"`), so a client can't pass a company, a version or a filter at all. A test
   sends `company_id`, `version` and `filter` in the body and checks they're rejected before any work happens.
@@ -689,6 +725,46 @@ which is a project of its own.
   the parser: section number and title on the start page, the excerpt and the whole section on the
   cited pages, no extra pages. It also checks that the facts in each answer appear in the sections it
   cites. See [the evaluation report](docs/EVALUATION.md#21-how-a-case-is-judged).
+
+How the citation in the screenshot above is built. The model only ever picks a label; everything a
+reader sees in the citation comes from metadata stored at ingestion, along a path the model isn't on:
+
+```mermaid
+flowchart TB
+    CH[("<b>Stored at ingestion</b>, Chroma metadata<br/>company · document title · version 2<br/>section 6.2 · Airport trips · pages 2–3 · text")]
+
+    subgraph MODEL["The model's side"]
+        direction TB
+        S["<b>Shown:</b> labels, not references<br/>S1 · §6.2 Airport trips<br/>S2 · §6.1 Ad-hoc trips<br/>S3 · §9 Guest travel<br/>each fenced with a random token"]
+        J["<b>Returned:</b> strict JSON schema<br/>verdict: answered<br/>answer: …the reporting manager…<br/>citations: only S1, S2 or S3 allowed → S1"]
+        S --> J
+    end
+
+    subgraph CODE["Code"]
+        direction TB
+        V{{"Validator<br/>only labels that were shown,<br/>at least one if answered"}}
+        M["label → chunk → citation<br/>document, version, section, title,<br/>excerpt from the stored text,<br/>page_start, page_end"]
+        V -->|"S1"| M
+    end
+
+    CH -->|"top 3 retrieved"| S
+    J --> V
+    CH -.->|"metadata never passes<br/>through the model"| M
+    M --> OUT(["Yamuna … Transport Policy · v2<br/>§6.2 Airport trips · pp. 2–3"])
+
+    classDef store fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#451a03
+    classDef model fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#500724
+    classDef gate fill:#f1f5f9,stroke:#334155,stroke-width:2px,color:#0f172a
+    classDef svc fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#2e1065
+    classDef ok fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#052e16
+    class CH store
+    class S,J model
+    class V gate
+    class M svc
+    class OUT ok
+    style MODEL fill:transparent,stroke:#db2777,stroke-dasharray:6 4
+    style CODE fill:transparent,stroke:#7c3aed,stroke-dasharray:6 4
+```
 
 ### 7. Prompt injection: layered, because no single layer is enough
 | Layer | What it stops |
