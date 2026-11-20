@@ -6,3 +6,4 @@ var
 .pytest_cache
 *.docx
 evaluation/results/offline-*
+demo
