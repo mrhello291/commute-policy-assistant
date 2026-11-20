@@ -57,6 +57,19 @@ class VersionConflict(AppError):
     """A policy version can't be ingested in the registry's current state."""
 
 
+class DifferentDocument(AppError):
+    """The upload is a different document from the company's live policy.
+
+    Each company has one policy document. Accepting another would replace
+    the whole live policy with it, since a new version replaces the old.
+    """
+
+    def __init__(self, live_doc_id: str, live_title: str):
+        super().__init__(f"live document is {live_doc_id}")
+        self.live_doc_id = live_doc_id
+        self.live_title = live_title
+
+
 class PolicyNotYetEffective(AppError):
     """The document's effective date is still in the future. Nothing has been stored."""
 

@@ -22,6 +22,11 @@ UNEXPECTED = "Something went wrong on our side. Please try again in a minute."
 
 POLICY_UNREADABLE = "The policy document could not be read: {reason}. Nothing was changed."
 POLICY_VERSION_CONFLICT = "{reason}. Upload a document with a higher version number. Nothing was changed."
+POLICY_DIFFERENT_DOCUMENT = (
+    'Your company\'s policy here is "{title}" (Document ID {doc_id}), and a new version must keep that '
+    "Document ID. Each company has one transport policy, so other rules, such as a night-shift SOP, "
+    "go into it as a section. Nothing was changed."
+)
 POLICY_NOT_YET_EFFECTIVE = (
     "This document takes effect on {date}. Please upload it on or after that date; until then {current} "
     "stays in use. Nothing was changed."

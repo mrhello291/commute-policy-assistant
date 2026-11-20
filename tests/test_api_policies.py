@@ -78,7 +78,7 @@ def without_company(version: int) -> bytes:
     from tests.test_pdf_parser import Pdf
 
     pdf = Pdf().title("Employee Transport Policy")
-    for text in ("Document ID: transport-policy", f"Version: {version}", "Effective from: 1 November 2026"):
+    for text in ("Document ID: yamuna-transport-policy", f"Version: {version}", "Effective from: 1 November 2026"):
         pdf.line(text)
     return pdf.heading("1. Scope").para("Every employee on a rostered shift.").bytes()
 
@@ -102,6 +102,24 @@ def test_a_future_dated_upload_says_when_to_send_it(client):
     assert body["status"] == "not_yet_effective"
     assert "15 January 2099" in body["message"] and "version 2 stays in use" in body["message"]
     assert client.get("/v1/policies/active", headers=auth(client)).json()["version"] == 2
+
+
+def test_a_second_document_does_not_replace_the_policy(client):
+    """A one-section SOP with its own Document ID used to replace Gomti's whole 22-section policy."""
+    from tests.test_pdf_parser import Pdf
+
+    pdf = Pdf().title("Night Shift Escort SOP")
+    for text in ("Document ID: night-escort-sop", "Version: 2", "Effective from: 1 November 2026"):
+        pdf.line(text)
+    sop = pdf.heading("1. Escort").para("A guard rides on every drop after 8 PM.").bytes()
+
+    response = upload(client, sop, auth(client, "gomti", role="policy_admin"))
+    assert response.status_code == 409
+    body = response.json()
+    assert body["status"] == "different_document"
+    assert '"Gomti Logistics Commute Policy" (Document ID gomti-commute-policy)' in body["message"]
+    live = client.get("/v1/policies/active", headers=auth(client, "gomti")).json()
+    assert (live["title"], live["version"]) == ("Gomti Logistics Commute Policy", 1)
 
 
 def test_markdown_is_still_accepted(client):

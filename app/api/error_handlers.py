@@ -18,6 +18,7 @@ from app.errors import (
     AccountInactive,
     AuthError,
     AuthUnavailable,
+    DifferentDocument,
     IngestionFailed,
     PermissionDenied,
     PolicyFormatError,
@@ -113,6 +114,11 @@ def install(app: FastAPI) -> None:
     async def on_version_conflict(request: Request, exc: VersionConflict):
         message = messages.POLICY_VERSION_CONFLICT.format(reason=str(exc).capitalize())
         return JSONResponse(error_body(request, "version_conflict", message), status_code=409)
+
+    @app.exception_handler(DifferentDocument)
+    async def on_different_document(request: Request, exc: DifferentDocument):
+        message = messages.POLICY_DIFFERENT_DOCUMENT.format(title=exc.live_title, doc_id=exc.live_doc_id)
+        return JSONResponse(error_body(request, "different_document", message), status_code=409)
 
     @app.exception_handler(PolicyNotYetEffective)
     async def on_not_yet_effective(request: Request, exc: PolicyNotYetEffective):

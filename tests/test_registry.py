@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from app.errors import VersionConflict
+from app.errors import DifferentDocument, VersionConflict
 from app.policies.models import PolicyDocument
 from app.policies.registry import PolicyRegistry
 
@@ -74,3 +74,13 @@ def test_database_refuses_two_active_versions(registry, tmp_path):
     conn = sqlite3.connect(tmp_path / "registry.db")
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute("UPDATE policy_versions SET status = 'active' WHERE version = 2")
+
+
+def test_a_different_document_cannot_replace_the_live_policy(registry):
+    stage_and_activate(registry, DOC)
+    sop = replace(DOC, doc_id="night-escort-sop", title="Night Shift Escort SOP", version=2, checksum="sum-2")
+    with pytest.raises(DifferentDocument) as refused:
+        registry.begin(sop)
+    assert (refused.value.live_doc_id, refused.value.live_title) == ("acme-policy", "Acme Policy")
+    assert registry.active("acme").version == 1
+    assert registry.get("acme", 2) is None

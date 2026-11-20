@@ -8,6 +8,10 @@ crash after it leaves the new one live. There is no state in between.
 
 A partial unique index enforces "at most one active version per company" in
 the database itself, so even a bug in this class can't make two live.
+
+Each company has exactly one policy document. A new version must carry the
+live one's document id: an upload of some other document (a one-page SOP,
+say) would otherwise replace the company's whole policy.
 """
 
 import sqlite3
@@ -16,7 +20,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from app.errors import VersionConflict
+from app.errors import DifferentDocument, VersionConflict
 from app.policies.models import PolicyDocument
 
 _SCHEMA = """
@@ -128,8 +132,15 @@ class PolicyRegistry:
         Versions only move forward: a version at or below the live one is
         refused, so an old document can never be re-activated by accident.
         A version that previously failed or was interrupted may be retried.
+        A different document from the live one is refused.
         """
         with self._transaction() as conn:
+            current = conn.execute(
+                "SELECT doc_id, title FROM policy_versions WHERE company_id = ? AND status = 'active'",
+                (doc.company_id,),
+            ).fetchone()
+            if current is not None and current["doc_id"] != doc.doc_id:
+                raise DifferentDocument(current["doc_id"], current["title"])
             live = conn.execute(
                 "SELECT MAX(version) AS v FROM policy_versions "
                 "WHERE company_id = ? AND status IN ('active', 'retired')",
