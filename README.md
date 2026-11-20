@@ -50,7 +50,8 @@ Without an API key the service still starts. Retrieval works, and questions get 
 | Many questions at once, with a stand-in LLM (no key, no quota) | `docker compose run --rm app python -m scripts.load_test` |
 | Latency of a running server, one question at a time | `python scripts/bench.py` |
 
-To run without Docker you need Python 3.11+: `pip install -e ".[dev]"`, then `uvicorn app.main:serve --factory`.
+To run without Docker you need Python 3.12+: `pip install -c constraints.txt -e ".[dev]"` installs the
+exact versions the image was tested with, then `uvicorn app.main:serve --factory`.
 
 ### Configuration
 

@@ -3,7 +3,7 @@ name = "commute-policy-assistant"
 version = "0.1.0"
 description = "Answers employee transport questions from their own company's current policy, with citations."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 # Pinned so a fresh clone builds what was tested; constraints.txt pins the rest.
 dependencies = [
     "fastapi==0.165.0",
@@ -44,7 +44,7 @@ filterwarnings = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
