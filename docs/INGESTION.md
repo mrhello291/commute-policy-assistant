@@ -373,10 +373,12 @@ that writes half a batch and then raises "disk full".
 | The database itself refuses two active versions | `test_registry.py::test_database_refuses_two_active_versions` |
 | A query only ever sees the requested version | `test_vector_store.py::test_query_only_sees_requested_version` |
 | An admin can't upload for another company, and the live version is unchanged | `test_api_policies.py::test_admin_cannot_upload_for_another_company` |
+| A PDF that names no company is filed under the uploader's, and other companies are untouched | `test_api_policies.py::test_a_pdf_that_names_no_company_is_filed_under_the_uploaders` |
 | Through the API, a failed ingest says the old version is still in use | `test_api_policies.py::test_failed_ingest_reports_that_old_version_is_kept` |
 | Restarting doesn't create new versions | `test_seed.py::test_restart_is_idempotent` |
 | Each sample PDF reads back as exactly its Markdown source: every section number, title, path and body | `test_sample_pdfs.py::test_pdf_reads_back_as_its_markdown_source` |
-| PDF layout problems, one per test: headers and footers, page breaks, numbered lists, tables, contents pages, wrapped headings | `test_pdf_parser.py` |
+| PDF layout problems, one per test: headers and footers, page breaks, numbered lists, tables, contents pages, wrapped headings, drawn bullets, `Section 4:` / `4.0` / `IV.` headings | `test_pdf_parser.py` |
+| PDFs made by a Word export, LibreOffice Writer and Chrome read back as exactly their source | `test_pdf_producers.py` |
 | Scanned, password-protected, damaged and non-PDF files are refused with the reason | `test_pdf_parser.py`, `test_api_policies.py::test_a_damaged_pdf_is_refused_and_the_live_version_kept` |
 
 ---

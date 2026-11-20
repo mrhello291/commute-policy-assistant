@@ -175,13 +175,16 @@ the same upload with a file picker: click **Authorize**, then *Try it out* on `P
 ### Trying ingestion: a new version, or a new client company
 
 `POST /v1/policies` loads both a new version of an existing policy and a new company's first policy.
-The only check on the company is that the uploader is a `policy_admin` of the company named in the
-document's document-control block, and the directory is where that admin comes from.
+The policy is filed under the uploader's company: the uploader must be a `policy_admin`, and the
+directory is where that admin comes from. If the document's document-control block names a Company ID,
+it must be the uploader's own (another company's is a 403). Most real policies don't print one, and
+then the uploader's company is used.
 
 **A new version for an existing company.** Make a v3 PDF: copy
 `data/archive/markdown-policies/yamuna/v2.md`, change `version: 2` to `version: 3` and a rule or two,
 and run `python scripts/make_policy_pdfs.py yamuna-v3.md yamuna-v3.pdf`. (Any PDF laid out the same way
-works: a document-control block on page 1, bold numbered headings.) Upload it with the two commands in
+works: a document-control block on page 1 with at least Document ID, Version and Effective from, and
+numbered headings in bold or a larger size.) Upload it with the two commands in
 [Uploading a policy](#uploading-a-policy).
 
 Questions now cite v3 only. An older version number gets a 409 and changes nothing.
@@ -217,8 +220,8 @@ is two steps, with no restart:
    }
    ```
 
-2. Sign in as that admin and upload the policy PDF. Its document-control block must give the same
-   Company ID.
+2. Sign in as that admin and upload the policy PDF. If its document-control block gives a Company
+   ID, it must be `kaveri`; if it gives none, the policy is filed under the admin's company.
 
    ```bash
    ADMIN=$(curl -s -XPOST localhost:8000/v1/auth/login -H 'content-type: application/json' \
@@ -663,11 +666,11 @@ flowchart TB
     READ --> R2["a page that is only an image (a scan),<br/>fonts with no Unicode mapping"]
     STRIP["<b>③ Strip running text</b><br/>lines near the top or bottom edge that repeat<br/>on most pages, digits ignored · bare page numbers"] --> BODY
     BODY["<b>④ Body size</b> = the most common font size"] --> HEAD
-    HEAD["<b>⑤ Headings</b> = a section number<br/>AND bold or larger than body<br/>a numbered list in body type stays text<br/>wrapped titles joined · contents lines skipped"] --> DC
+    HEAD["<b>⑤ Headings</b> = a section number<br/>AND bold or larger than body<br/>Section 4: · 4.0 · IV. read as 4<br/>a numbered list in body type stays text<br/>wrapped titles joined · contents lines skipped"] --> DC
     HEAD --> R3["no numbered heading<br/>stands out"]
-    DC["<b>⑥ Document control</b>, before the first heading<br/>Company · Company ID · Document ID<br/>Version · Effective from"] --> SEC
+    DC["<b>⑥ Document control</b>, before the first heading<br/>Document ID · Version · Effective from<br/>Company and Company ID, or the uploader's"] --> SEC
     DC --> R4["version not a whole number,<br/>bad date, missing field"]
-    SEC["<b>⑦ Sections with page ranges</b><br/>paragraphs from line spacing · page-break joins<br/>bullets kept · hyphens undone<br/>pages = heading's page → last page of its text"] --> DOC
+    SEC["<b>⑦ Sections with page ranges</b><br/>paragraphs from line spacing · page-break joins<br/>bullets kept, however they were drawn · hyphens undone<br/>pages = heading's page → last page of its text"] --> DOC
     SEC --> R5["duplicate number, outside its<br/>parent, nested over 4 levels"]
     MD -->|"same metadata<br/>and section rules"| DOC
     DOC(["PolicyDocument + SHA-256 checksum<br/>the same shape for PDF and Markdown,<br/>so chunking, registry and citations don't change"])
@@ -692,32 +695,56 @@ and the live version keeps answering. What each rule handles:
 | PDF problem | What the parser does |
 |---|---|
 | No real headings, only fonts and positions | A heading is a line that starts with a section number **and** is bold or larger than body text (the most common size on the page) |
+| Section numbers written another way | `Section 4: Title`, `Clause 4 - Title`, `4) Title`, `4.0 Title` and roman `IV. Title` are read as section 4, so `4.1` is found inside it. The citation uses the plain number and the heading's title |
 | Numbered lists in body text ("1. Bring your ID card") | Body size and not bold, so it stays text |
 | Running headers and footers, "Page 3 of 5" | Lines near the top or bottom edge that repeat on most pages (digits ignored) are dropped, and so are bare page numbers |
 | A paragraph cut by a page break, a heading alone at the bottom of a page | The paragraph is joined unless its last line ended a sentence. The heading owns the text on the next page |
 | A heading wrapped onto two lines | Joined into one title |
 | Tables | Read as tables, one row per line (`Trip type: Airport; Cap (INR): 1,500`), not as loose numbers |
-| Bullets, including glyphs with no Unicode mapping (`(cid:127)`) | Kept as `- ` items |
-| Line-end hyphens, ligatures (`ﬁ`), non-breaking spaces | Joined and normalised |
+| Bullets, which every tool draws differently: a `•` character, a glyph with no Unicode mapping (`(cid:127)`), Word's Symbol-font private-use character (U+F0B7, which text cleaning would otherwise delete), a glyph placed as a separate line beside its item (LibreOffice), a small filled dot drawn as a shape (Chrome's print to PDF) | Kept as `- ` items, with an item's wrapped lines joined to it |
+| Line-end hyphens, a number broken at its hyphen (`1800-000-` / `222`), ligatures (`ﬁ`), non-breaking spaces | Joined and normalised |
 | Table of contents | Dot-leader lines (`4.2 Escort ........ 7`) are skipped |
-| Which company, version and date | A document-control block on page 1, as a table or as `Label: value` lines: Company, Company ID, Document ID, Version, Effective from. The same rules as Markdown front matter: the version is a whole number, the date a real date |
+| Which company, version and date | A document-control block on page 1, as a table or as `Label: value` lines: Document ID, Version, Effective from, and optionally Company and Company ID. Without them the uploader's company is used; a Company ID that isn't the uploader's is refused (403). The same rules as Markdown front matter: the version is a whole number, the date a real date |
 | A scanned page (an image, no text) | Refused, naming the page: run OCR or upload the original |
 | Password-protected, damaged, not a PDF, over 10 MB or 150 pages | Refused with the reason |
-| Headings neither bold nor larger, duplicate or misplaced section numbers | Refused with the reason |
+| Headings neither bold nor larger, unnumbered headings, duplicate or misplaced section numbers | Refused with the reason. A subsection with no parent says which number is missing and which heading styles are read |
 
 **How I know it reads correctly.** The sample PDFs are generated by `scripts/make_policy_pdfs.py` from
 the original Markdown, now kept in `data/archive/markdown-policies/`. They have a running header and
 footer, a document-control table, a heading left alone at the bottom of a page, and bullets drawn in a
 font with no Unicode mapping. `tests/test_sample_pdfs.py` parses each PDF and requires every section
 number, title, heading path and body to equal its Markdown source exactly. `tests/test_pdf_parser.py`
-draws small PDFs with one layout problem each (28 cases, including the refusals). The evaluation ran on
+draws small PDFs with one layout problem each (47 cases, including the refusals). The evaluation ran on
 the PDFs: retrieval scores are identical to the Markdown run to three decimals
 ([evaluation report §3.6](docs/EVALUATION.md#36-re-run-on-the-pdf-policies-with-citations-checked-against-the-pdf)).
 
+**PDFs from other tools.** Passing on our own generator's PDFs only shows the parser reads that one
+layout, so `scripts/check_pdf_producers.py` lays the same four policies out the way other tools do and
+compares every section with its source:
+
+| Made with | Before the fixes below | Now |
+|---|---|---|
+| Word export (pandoc → .docx → LibreOffice) | Sections and titles right; the bullet list in §1.2 lost its bullets | Identical to the source |
+| LibreOffice Writer (.odt → PDF) | Same, and a phone number broken at a hyphen rejoined with a space | Identical |
+| Chrome's print to PDF, serif, justified, running header and "Page X of Y" | Same as Word | Identical |
+| The same, headings at body size and bold only | Same as Word | Identical |
+
+Real policies also vary in what they print, so the same check ran with headings written other ways and
+without a company. Before, `Section 4:`, `4.0` and `IV.` headings were refused with a confusing
+"section 1.1 is not inside its parent section", and a document without a Company ID was refused; most
+real policies don't print one. Now all of these read with the same sections and titles as the source,
+and the company comes from the uploader. In every run, before and after, the parser either read a
+section correctly or refused the document: it never put text under the wrong number. A short policy
+laid out by each of the three tools is kept in `tests/fixtures/pdf_producers/`, and
+`tests/test_pdf_producers.py` requires each to read back exactly as its source.
+
 **Not handled.** Two-column pages aren't detected and would be read across the columns. Headings that
-differ from body text only by colour aren't recognised (the document is refused, not misread). Scans
-need OCR before upload. Each of these needs a layout model or an OCR step in front of this parser,
-which is a project of its own.
+differ from body text only by colour aren't recognised, and neither are headings without numbers
+(both are refused, not misread: a citation needs a section number). Scans need OCR before upload. Each
+of these needs a layout model or an OCR step in front of this parser, which is a project of its own.
+A policy with no Document ID, Version or Effective from is refused, and so is a version like `2.0`:
+the version decides which text is live, so it isn't guessed. A policy numbered `IV.` is cited as §4,
+with the heading's title, so a reader can still find it.
 
 ### 5. Chunking and retrieval: one section per chunk, dense search, top 3
 
@@ -1059,9 +1086,10 @@ data/archive/markdown-policies/  the Markdown the PDFs were generated from
 data/employees.json  mock HR directory: 3–4 employees per company, one policy admin each
 evaluation/      cases.jsonl (questions), scoring, runner, results/eval_set.jsonl (scored set),
                  results/repeats/ (5 runs per model and retriever, combined by repeats.py)
-tests/           ~500 tests, no network
+tests/           ~520 tests, no network; fixtures/pdf_producers/ holds PDFs made by Word, Writer and Chrome
 scripts/bench.py latency against a running server
 scripts/make_policy_pdfs.py  builds the sample PDFs from the archived Markdown
+scripts/check_pdf_producers.py  lays the sample policies out with Word, Writer and Chrome and checks the parser reads them
 docs/EVALUATION.md  evaluation report
 docs/INGESTION.md   ingestion design: atomic version switch, failure points, recovery
 docs/images/        screenshots of the sign-in and chat pages
