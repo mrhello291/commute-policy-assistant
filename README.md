@@ -16,7 +16,9 @@ evaluation in [docs/EVALUATION.md](docs/EVALUATION.md) and the sample policies i
 
 ## Demo
 
-[![A frame from the demo: asking for another company's rules in the request body is rejected with HTTP 422](docs/images/demo.png)](demo/demo.mp4)
+
+https://github.com/user-attachments/assets/a8aefc36-c194-4fbe-ae9f-823c1ef1d93f
+
 
 **[Watch the demo (1:49, no sound)](demo/demo.mp4).** A caption above the terminal says what each step
 shows. It runs against the live service and the real LLM, in this order: one-command start-up, the
