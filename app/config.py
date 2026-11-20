@@ -68,8 +68,11 @@ class Settings(BaseSettings):
     request_deadline_s: float = 2.8
     llm_timeout_s: float = 2.2
     retrieval_timeout_s: float = 0.8
-    # Don't start an LLM call with less time than this left; say "try again" instead.
-    min_llm_window_s: float = 0.5
+    # Don't start an LLM call with less time than this left; say "try again"
+    # instead. A typical Groq reply takes about 0.75 s (p50 over 5 runs), so a
+    # call with less time than that rarely finishes. In particular, a call that
+    # times out at 2.2 s leaves 0.6 s, so no second call is made after it.
+    min_llm_window_s: float = 0.8
     # Below this cosine similarity the policy is treated as silent on the
     # question and no LLM call is made.
     evidence_min_similarity: float = 0.25

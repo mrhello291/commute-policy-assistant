@@ -31,3 +31,13 @@ def test_dev_may_use_the_dev_secret(monkeypatch):
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.delenv("JWT_SECRET", raising=False)
     assert Settings(_env_file=None).jwt_secret == DEV_JWT_SECRET
+
+
+def test_a_call_that_times_out_leaves_no_time_for_a_doomed_second_call():
+    """After call 1 hits its timeout, what is left of the deadline is shorter than a
+    typical reply, so the service says "try again" at once instead of spending a call."""
+    settings = Settings(_env_file=None)
+    left_after_timeout = settings.request_deadline_s - settings.llm_timeout_s
+    assert left_after_timeout < settings.min_llm_window_s
+    # A reply rejected early (well before the timeout) still gets its repair call.
+    assert settings.request_deadline_s - 1.0 >= settings.min_llm_window_s
