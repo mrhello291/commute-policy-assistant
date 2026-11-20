@@ -509,8 +509,10 @@ docs/            DESIGN.md, INGESTION.md, EVALUATION.md, POLICY_DATA.md, images/
 - **The brief's 9:30 PM question fails.** *"Am I eligible for a 9:30 PM drop?"* fails at all three
   companies, in every run. The answer needs the grade, distance and night-window sections, and only
   the top 3 excerpts reach the model; the question's words pull in night-travel sections instead. At
-  Yamuna the answer is usually an unconditional "yes". The likely fix is to show the model 5 excerpts
-  and let it cite at most 3 ([EVALUATION.md §6](docs/EVALUATION.md#6-known-failures)).
+  Yamuna the answer is usually an unconditional "yes". Showing more excerpts wouldn't help, because
+  the eligibility sections rank 9th to 18th at Yamuna and Gomti; the proposed fix is a rule in code
+  that always includes the eligibility sections for eligibility questions
+  ([EVALUATION.md §6](docs/EVALUATION.md#6-known-failures)).
 - **Short policies.** The brief asks for three short documents; real ones run to 10–30 pages, which
   would mean more sections competing in retrieval and more pressure on the 3-chunk cap.
 - **One process.** The token store, policy registry and ingestion lock assume a single server process.

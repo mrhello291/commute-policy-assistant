@@ -370,8 +370,10 @@ with the heading's title, so a reader can still find it.
   The cost is the brief's own *"Am I eligible for a 9:30 PM drop?"*, which fails at all three
   companies. The answer needs the grade, distance and night-window sections, but the question's words
   pull in night-travel sections instead, so the model never sees the eligibility rules
-  ([EVALUATION.md §6](EVALUATION.md#6-known-failures)). The next change to make is to show the model
-  5 excerpts and let it cite at most 3.
+  ([EVALUATION.md §6](EVALUATION.md#6-known-failures)). Showing the model more excerpts wouldn't
+  fix it: the eligibility sections rank 9th to 18th at Yamuna and Gomti. The next change to make is
+  a rule in code that puts a policy's eligibility sections among the 3 excerpts whenever a question
+  is about eligibility.
 
 ## 6. Grounding and "the policy does not say"
 - Two layers. A **retrieval evidence gate** in code answers "not covered" with no LLM call when nothing

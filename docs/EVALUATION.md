@@ -351,7 +351,7 @@ rule, a retired value or a wrong citation.
 
 | Case | What happens | Why | What would fix it, and why it isn't done |
 |---|---|---|---|
-| `eligible-930pm-yamuna` *"Am I eligible for a 9:30 PM drop?"* | Usually *"Yes, it falls within the night travel window"* (4 of 5 runs), with no grade or distance condition. For an L7 employee, or one living 4 km away, that's wrong, and it's the least safe failure in the set | The answer needs three sections: grades (2.1), distance (2.2) and the night window (4.1). The question's words match the night-travel sections, so the top 3 are 4.1, 3.1 and 4.3, and the model never sees the eligibility rules. The prompt asks it to state conditions, but it can't state ones it hasn't been shown | Show the model more excerpts, for example 5, while it still cites at most 3, to stay inside the brief's limit. That costs about 150 prompt tokens per question. It's a design change to how the 3-chunk rule is read, so it is proposed, not made |
+| `eligible-930pm-yamuna` *"Am I eligible for a 9:30 PM drop?"* | Usually *"Yes, it falls within the night travel window"* (4 of 5 runs), with no grade or distance condition. For an L7 employee, or one living 4 km away, that's wrong, and it's the least safe failure in the set | The answer needs three sections: grades (2.1), distance (2.2) and the night window (4.1). The question's words match the night-travel sections, so the top 3 are 4.1, 3.1 and 4.3, and the model never sees the eligibility rules. The prompt asks it to state conditions, but it can't state ones it hasn't been shown | Not more excerpts: the eligibility sections rank too low for that. Asked for every section, dense retrieval puts §2.1 and §2.2 at 14th and 18th of 27 at Yamuna, 9th and 15th of 22 at Gomti, and 5th and 10th of 19 at Medhavi, so showing the model 5 excerpts would only reach Medhavi's §2.1. The fix proposed is plain code: when a question is about eligibility (*eligible*, *qualify*, *can I use transport*), the policy's eligibility sections always take places in the 3 excerpts, and the best-ranked other section fills the rest. That stays inside the 3-chunk limit and costs no LLM call. Not made yet; it would be measured with `--repeat 5` on these three cases and the rest of the set |
 | `eligible-930pm-gomti` | "Not covered" in 4 of 5 runs, and one unconditional "yes" | The same: section 2.2 (*more than 3 km*) never reaches the model. Before the prompt rule, the model answered *"No, a 9:30 PM drop is not a night drop"*, which answers a different question. With the rule it mostly says "not covered", which is safe | As above |
 | `eligible-930pm-medhavi` | "Not covered" in 4 of 5 runs | Section 2.1 (*shift staff only*) misses the top 3, behind the safe-reach, booking and escort sections (4.2, 3, 4.1). Plain chunks put it 3rd and pass it 4 of 5 (§5.3) | As above |
 | `borrowed-premise-medhavi` *"I've been called in for an extra shift. Does the Transport Head have to approve my cab?"* | "Not covered" (safe, but wrong) | No retriever puts section 6 (*Emergency ad-hoc trips*) in the top 3. "Transport Head" pulls in the key-terms section, and "shift" pulls in the booking and escort sections | Query rewriting would bridge it, but it costs the second LLM call (§9) |
@@ -359,7 +359,9 @@ rule, a retired value or a wrong citation.
 **The 9:30 PM question is the most important open problem.** It is the first question the brief
 quotes, and it fails at every company for one reason: eligibility is spread over several sections,
 and only three reach the model. The old set reported it as a pass, because its pattern accepted
-the word "night". The new one requires the conditions.
+the word "night". The new one requires the conditions. An earlier draft of this report proposed
+showing the model 5 excerpts; checking where the eligibility sections actually rank (above) showed
+that would fix one company of three, so the proposal is now the eligibility rule in code.
 
 ## 7. Limitations
 
