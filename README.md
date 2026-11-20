@@ -358,6 +358,23 @@ flowchart TD
     VAL2 -->|"rejected again"| UN["unanswerable"]
     VAL -->|"timeout, rate limit or outage"| TA
     VAL2 -->|"timeout or outage"| TA
+
+    classDef api fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+    classDef gate fill:#f1f5f9,stroke:#334155,stroke-width:2px,color:#0f172a
+    classDef svc fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#2e1065
+    classDef store fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#451a03
+    classDef ext fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#500724,stroke-dasharray:5 3
+    classDef ok fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#052e16
+    classDef stop fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#431407
+    classDef bad fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#450a0a
+    class Q,AUTH api
+    class LIVE store
+    class RET svc
+    class OTHER,TH,VAL,VAL2 gate
+    class LLM,LLM2 ext
+    class OK ok
+    class NP,OC,NC stop
+    class TA,UN bad
 ```
 
 Ingestion (on startup for `data/policies/*/v*.pdf`, or via `POST /v1/policies`):
@@ -367,8 +384,14 @@ flowchart LR
     P["Parse and validate<br/>the whole document"] --> B["Registry<br/>v2 = staging"] --> W["Write v2 chunks<br/>invisible to reads"] --> A["Flip the live pointer<br/>one SQLite transaction"] --> PR["Prune versions<br/>older than v1"]
     P -.->|"fails"| N1["Nothing written"]
     B & W & A -.->|"fails"| N2["v1 still live,<br/>v2 chunks removed"]
-    classDef commit stroke-width:3px
+    classDef step fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+    classDef store fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#451a03
+    classDef commit fill:#dcfce7,stroke:#16a34a,stroke-width:3px,color:#052e16
+    classDef stop fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#431407,stroke-dasharray:4 3
+    class P,PR step
+    class B,W store
     class A commit
+    class N1,N2 stop
 ```
 
 The full design is in [docs/INGESTION.md](docs/INGESTION.md): the architecture diagram, what
@@ -454,24 +477,34 @@ Signing in:
 sequenceDiagram
     autonumber
     participant C as Client
-    participant L as POST /v1/auth/login
-    participant D as Employee directory<br/>data/employees.json
-    participant I as Token issuer
-    participant S as Token store<br/>SQLite
+    box rgba(37,99,235,0.10) The service
+        participant L as POST /v1/auth/login
+        participant I as Token issuer
+    end
+    box rgba(217,119,6,0.13) Stored data
+        participant D as Employee directory<br/>data/employees.json
+        participant S as Token store<br/>SQLite
+    end
     C->>L: company_id, employee_id (nothing else accepted)
-    alt 10 failed sign-ins from this client in 5 minutes
-        L-->>C: 429 too_many_attempts, Retry-After
+    rect rgba(220,38,38,0.10)
+        alt 10 failed sign-ins from this client in 5 minutes
+            L-->>C: 429 too_many_attempts, Retry-After
+        end
     end
     L->>D: company known? employee works there? still active?
     D-->>L: the employee and their role (the role comes from here)
-    alt not found, or has left
-        L-->>C: 401 unknown_company or unknown_employee,<br/>403 account_inactive (counted as a failure)
+    rect rgba(220,38,38,0.10)
+        alt not found, or has left
+            L-->>C: 401 unknown_company or unknown_employee,<br/>403 account_inactive (counted as a failure)
+        end
     end
-    L->>I: sign HS256: sub, company_id, role, jti, iss, aud, iat, exp
-    I-->>L: a fresh JWT
-    L->>S: record jti, employee, company, role, expiry, IP, user agent
-    Note over S: oldest sessions beyond<br/>the cap are revoked
-    L-->>C: access_token, plus an HttpOnly SameSite=Strict cookie<br/>that only opens the web pages
+    rect rgba(22,163,74,0.10)
+        L->>I: sign HS256: sub, company_id, role, jti, iss, aud, iat, exp
+        I-->>L: a fresh JWT
+        L->>S: record jti, employee, company, role, expiry, IP, user agent
+        Note over S: oldest sessions beyond<br/>the cap are revoked
+        L-->>C: access_token, plus an HttpOnly SameSite=Strict cookie<br/>that only opens the web pages
+    end
 ```
 
 Every API request after that. The company a route sees comes only from here:
@@ -490,6 +523,15 @@ flowchart TD
     P --> ADM{{"role is policy_admin?"}}
     ADM -->|"yes"| UP["POST /v1/policies<br/>own company only"]
     ADM -->|"no"| F["403"]
+
+    classDef api fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+    classDef gate fill:#f1f5f9,stroke:#334155,stroke-width:2px,color:#0f172a
+    classDef ok fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#052e16
+    classDef bad fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#450a0a
+    class R,ASK,UP api
+    class V,S,D,ADM gate
+    class P ok
+    class X,U,F bad
 ```
 
 - **The directory decides who you are.** `data/employees.json` stands in for each company's HR system.
