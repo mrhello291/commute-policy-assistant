@@ -28,7 +28,7 @@ one to fill the form). After signing in you get the chat page, and the page show
 with a copy button) for the API docs at http://localhost:8000/docs: press **Authorize** and paste it.
 
 <p>
-  <img src="docs/images/sign-in.png" alt="The sign-in page: a company and employee ID form, and the table of sample accounts" width="38%">
+  <img src="docs/images/sign-in.png" alt="The sign-in page: a company code and employee ID form, and the table of sample accounts" width="38%">
   &nbsp;
   <img src="docs/images/chat.png" alt="The chat page with three answers: an airport-trip answer citing §6.2 on pages 2–3, a not-covered reply about dogs, and a refusal of a question about another company" width="58%">
 </p>
