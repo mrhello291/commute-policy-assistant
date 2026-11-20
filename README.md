@@ -239,6 +239,101 @@ deleted at the next startup (see [Sign-in](#2-sign-in-a-mock-directory-a-fresh-t
 
 ---
 
+## Architecture
+
+One FastAPI process, two SQLite files and an embedded Chroma store on one Docker volume, and a small
+embedding model that runs locally. The only call that leaves the machine is the one LLM call per
+question, and it carries just the 3 policy excerpts and the question.
+
+```mermaid
+flowchart LR
+    subgraph CLIENTS["Clients"]
+        direction TB
+        BR(["Browser<br/>sign-in · chat · /docs"])
+        CLI(["API client<br/>curl, scripts"])
+    end
+
+    subgraph ROUTES["FastAPI routes"]
+        direction TB
+        PAGES["Pages<br/>/login · / · /docs"]
+        AUTHR["/v1/auth/login<br/>logout · /v1/me"]
+        ASKR["/v1/ask"]
+        POLR["/v1/policies<br/>upload · active"]
+    end
+
+    GATE{{"authenticate()<br/>JWT → token store<br/>→ directory<br/>= Principal"}}
+
+    subgraph SERVICES["Services, one process"]
+        direction TB
+        AUTHS["<b>AuthService</b><br/>issue · verify · revoke<br/>failed sign-in limit"]
+        QA["<b>QuestionAnsweringService</b><br/>other-company check<br/>retriever: dense, or hybrid BM25 + dense<br/>evidence gate · fenced prompt<br/>validator · citations<br/>≤ 2 LLM calls · 2.8 s deadline"]
+        ING["<b>IngestionService</b><br/>uploads, and data/policies at startup<br/>parse → chunk → scan → embed<br/>stage → flip → prune"]
+    end
+
+    subgraph SIGNIN["Sign-in data"]
+        direction TB
+        DIR[/"employees.json<br/>mock HR directory"/]
+        TOK[("auth.db · SQLite<br/>token records")]
+    end
+
+    subgraph HOSTED["Hosted LLM"]
+        direction TB
+        GROQ["Groq gpt-oss-20b<br/>default"]
+        GEM["Gemini Flash-Lite<br/>fallback"]
+    end
+
+    subgraph POLICY["Policy data, on the volume"]
+        direction TB
+        REG[("registry.db · SQLite<br/>live version per company")]
+        CHR[("Chroma<br/>a collection per company")]
+    end
+
+    EMB["MiniLM embedder<br/>local ONNX, ~20 ms"]
+
+    CLIENTS --> ROUTES
+    AUTHR --> AUTHS
+    ASKR & POLR --> GATE
+    GATE -.->|"verify"| AUTHS
+    GATE -->|"employee"| QA
+    GATE -->|"policy_admin"| ING
+    AUTHS --> DIR & TOK
+    QA -->|"3 excerpts + the question"| GROQ
+    QA -.->|"no Groq key"| GEM
+    QA --> REG & CHR & EMB
+    ING --> REG & CHR & EMB
+
+    classDef client fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#1e1b4b
+    classDef api fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+    classDef gate fill:#f1f5f9,stroke:#334155,stroke-width:2px,color:#0f172a
+    classDef svc fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#2e1065
+    classDef store fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#451a03
+    classDef file fill:#fefce8,stroke:#ca8a04,stroke-width:1.5px,color:#422006
+    classDef local fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#042f2e
+    classDef ext fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#500724,stroke-dasharray:5 3
+    class BR,CLI client
+    class PAGES,AUTHR,ASKR,POLR api
+    class GATE gate
+    class AUTHS,QA,ING svc
+    class REG,TOK,CHR store
+    class DIR file
+    class EMB local
+    class GROQ,GEM ext
+    style CLIENTS fill:transparent,stroke:#6366f1,stroke-dasharray:6 4
+    style ROUTES fill:transparent,stroke:#2563eb,stroke-dasharray:6 4
+    style SERVICES fill:transparent,stroke:#7c3aed,stroke-dasharray:6 4
+    style SIGNIN fill:transparent,stroke:#d97706,stroke-dasharray:6 4
+    style POLICY fill:transparent,stroke:#d97706,stroke-dasharray:6 4
+    style HOSTED fill:transparent,stroke:#db2777,stroke-dasharray:6 4
+```
+
+Colours are the same in every diagram in these docs: blue for routes and code steps, violet for
+services, amber for stored data, teal for the local model, dashed pink for the hosted LLM, green for
+a successful outcome, orange for a safe refusal and red for an error or a rejected input. Every
+route the company reaches comes from `authenticate()`; how that works is in
+[Sign-in](#2-sign-in-a-mock-directory-a-fresh-token-per-login-every-token-revocable).
+
+---
+
 ## How it works
 
 Answering a question:
