@@ -58,8 +58,16 @@ flowchart TD
     W -->|"error"| F
     A -->|"error"| F
 
-    classDef commit stroke-width:3px
-    classDef safe stroke-dasharray:4 3
+    classDef client fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#1e1b4b
+    classDef step fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+    classDef gate fill:#f1f5f9,stroke:#334155,stroke-width:2px,color:#0f172a
+    classDef store fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#451a03
+    classDef commit fill:#dcfce7,stroke:#16a34a,stroke-width:3px,color:#052e16
+    classDef safe fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#431407,stroke-dasharray:4 3
+    class IN client
+    class P,E,PR,N step
+    class O,S gate
+    class B,W store
     class A commit
     class X,F,NOOP safe
 ```
@@ -72,6 +80,15 @@ flowchart LR
     R --> C["Chroma collection policy_company<br/>where version = pinned<br/>BM25 index keyed by company + version"]
     C --> K["ensure_same_tenant<br/>re-check every chunk's<br/>company and version"]
     K --> PR["Prompt"]
+
+    classDef client fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#1e1b4b
+    classDef store fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#451a03
+    classDef gate fill:#f1f5f9,stroke:#334155,stroke-width:2px,color:#0f172a
+    classDef model fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#500724
+    class T client
+    class R,C store
+    class K gate
+    class PR model
 ```
 
 Two stores are involved, and that's the root of the problem:
@@ -109,23 +126,33 @@ The same steps over time, with the three ways an upload can end:
 
 ```mermaid
 sequenceDiagram
-    participant I as IngestionService
-    participant R as SQLite registry
-    participant C as Chroma
+    box rgba(124,58,237,0.10) Code
+        participant I as IngestionService
+    end
+    box rgba(217,119,6,0.13) Stores
+        participant R as SQLite registry
+        participant C as Chroma
+    end
     Note over R,C: v1 is live and complete
     I->>R: begin(v2): row v2 = staging
     I->>C: add v2 chunks (ids contain v2, v1 untouched)
     Note over C: stored, but no read<br/>asks for version 2
     alt error in embedding, writing or activating
-        I->>R: v2 = failed
-        I->>C: delete v2 chunks
-        Note over R,C: v1 is still live and complete
+        rect rgba(220,38,38,0.10)
+            I->>R: v2 = failed
+            I->>C: delete v2 chunks
+            Note over R,C: v1 is still live and complete
+        end
     else process dies before the commit
-        Note over R,C: next startup, before any request:<br/>reconcile() marks v2 failed<br/>and deletes every chunk<br/>that is not v1
+        rect rgba(234,88,12,0.10)
+            Note over R,C: next startup, before any request:<br/>reconcile() marks v2 failed<br/>and deletes every chunk<br/>that is not v1
+        end
     else success
-        I->>R: activate(v2): v1 retired, v2 active, ONE transaction
-        Note over R: COMMIT POINT<br/>new questions now get v2
-        I->>C: delete versions older than v1
+        rect rgba(22,163,74,0.12)
+            I->>R: activate(v2): v1 retired, v2 active, ONE transaction
+            Note over R: COMMIT POINT<br/>new questions now get v2
+            I->>C: delete versions older than v1
+        end
     end
 ```
 
@@ -202,6 +229,15 @@ stateDiagram-v2
     failed --> staging: retried
     active --> retired: next version activated
     retired --> [*]: never live again
+
+    classDef staged fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+    classDef live fill:#dcfce7,stroke:#16a34a,stroke-width:3px,color:#052e16
+    classDef dead fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#450a0a
+    classDef old fill:#f1f5f9,stroke:#64748b,stroke-width:1.5px,color:#0f172a
+    class staging staged
+    class active live
+    class failed dead
+    class retired old
 ```
 
 - `staging` is never visible. Only `active` is read by questions.
@@ -259,12 +295,16 @@ sequenceDiagram
     participant C as Chroma
     Q->>R: which version is live?
     R-->>Q: v1, pinned for this question
-    U->>R: activate v2, v1 retired
-    U->>C: prune old chunks
-    Note over C: before the fix: v1 deleted here<br/>after the fix: only versions<br/>older than v1 deleted
+    rect rgba(37,99,235,0.10)
+        U->>R: activate v2, v1 retired
+        U->>C: prune old chunks
+        Note over C: before the fix: v1 deleted here<br/>after the fix: only versions<br/>older than v1 deleted
+    end
     Q->>C: search where version = 1
     C-->>Q: before: 0 chunks, a wrong "not covered"<br/>after: v1 chunks, a correct answer
-    Note over Q,C: a question asked from now on gets v2 from the registry,<br/>and Chroma's version filter hides v1 from it
+    rect rgba(22,163,74,0.12)
+        Note over Q,C: a question asked from now on gets v2 from the registry,<br/>and Chroma's version filter hides v1 from it
+    end
 ```
 
 **The fix.** Activation now keeps the version it just retired and deletes only versions older than that
