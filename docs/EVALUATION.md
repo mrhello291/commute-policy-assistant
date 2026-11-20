@@ -185,6 +185,70 @@ the provider returns a 429, the harness waits 30 s and re-asks, up to 3 times, a
 case's notes. That retry belongs to the harness, not the service. Of the runs reported here, only one
 kept run needed it (one case in Gemini hybrid run 1, answered on the retry).
 
+The whole path, including the two ways to score without asking again. The two judges are separate on
+purpose: `scoring.py` checks the answer against the case, and `citation_check.py` checks each citation
+against text it reads from the PDF itself, so a bug in the service's PDF parser can't vouch for its
+own citations.
+
+```mermaid
+flowchart TB
+    CASES[/"cases.jsonl<br/>58 questions · gold sections<br/>facts that must and must not appear"/]
+
+    subgraph RUN["python -m evaluation.run"]
+        direction TB
+        FRESH["Fresh service in a temp folder<br/>built by the same Container as the API"]
+        LOAD["startup() loads data/policies in version order<br/>Yamuna v1, then v2: the same switch as a live upload<br/>Gomti v1 · Medhavi v1"]
+        ASK["ask() on the QuestionAnsweringService behind /v1/ask<br/>paced 8 s apart · a 429 waits 30 s, up to 3 tries"]
+        FRESH --> LOAD --> ASK
+    end
+
+    LLM["Groq or Gemini"]
+    SAVED[/"a saved results file"/]
+    ACT["actual: status · answer · citations<br/>retrieved chunk ids · LLM calls · latency"]
+    PDF[/"the policy PDFs"/]
+
+    subgraph JUDGES["Two separate judges, no LLM judge"]
+        direction LR
+        SC["<b>scoring.py</b><br/>status · facts · no_leak · gold citation<br/>isolation · budget · live_version"]
+        CC["<b>citation_check.py</b><br/>reads the raw page text with pdfplumber,<br/>not through the service's parser:<br/>heading on the start page, excerpt and<br/>whole section on the cited pages"]
+    end
+
+    PASS{{"Every check that<br/>applies passed?"}}
+    OUT[/"eval_set.jsonl + summary<br/>id · input · expected · actual · pass · notes"/]
+    AGG[/"repeats/name.summary.json<br/>mean ± std · min–max · try again vs wrong<br/>passes per case · must-hold totals"/]
+    DROP["Still rate limited after 3 tries:<br/>the run is thrown away, not scored,<br/>and the same command resumes later"]
+
+    CASES --> FRESH
+    ASK <-->|"1 call per question"| LLM
+    ASK --> ACT
+    SAVED -->|"--rescore: no service,<br/>no LLM calls"| ACT
+    ACT --> SC & CC
+    PDF -->|"newest version<br/>per company"| SC
+    PDF -->|"raw page text"| CC
+    SC & CC --> PASS --> OUT
+    OUT -->|"--repeat 5: five runs,<br/>run-1 … run-5.jsonl"| AGG
+    ASK -.->|"with --repeat"| DROP
+
+    classDef file fill:#fefce8,stroke:#ca8a04,stroke-width:1.5px,color:#422006
+    classDef svc fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#2e1065
+    classDef ext fill:#fce7f3,stroke:#db2777,stroke-width:1.5px,color:#500724,stroke-dasharray:5 3
+    classDef judge fill:#ccfbf1,stroke:#0d9488,stroke-width:1.5px,color:#042f2e
+    classDef api fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+    classDef gate fill:#f1f5f9,stroke:#334155,stroke-width:2px,color:#0f172a
+    classDef ok fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#052e16
+    classDef bad fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#450a0a
+    class CASES,SAVED,PDF file
+    class FRESH,LOAD,ASK svc
+    class LLM ext
+    class ACT api
+    class SC,CC judge
+    class PASS gate
+    class OUT,AGG ok
+    class DROP bad
+    style RUN fill:transparent,stroke:#7c3aed,stroke-width:2px
+    style JUDGES fill:transparent,stroke:#0d9488,stroke-width:2px
+```
+
 Without an API key (`--llm none`) the runner still runs. It scores retrieval and says in each case's
 notes that the answer was not scored.
 
