@@ -610,6 +610,29 @@ provider), each with **dense** (shipped) and **hybrid** retrieval. Same 58 cases
   day, and BM25 adds about 2 ms per question. Groq's p95 varied from 897 to 1324 ms across the five
   dense runs alone.
 
+Dense against hybrid on Groq, as one picture: hybrid wins the ranking measures, ties on whether the
+right section reaches the model at all, and passes fewer cases. The axis starts at 75%.
+
+🟦 dense (shipped) · 🟧 hybrid BM25 + dense
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 900
+    height: 420
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2a78d6, #d95926"
+---
+xychart-beta horizontal
+    title "Dense (shipped) vs hybrid, Groq, 58 cases (%)"
+    x-axis ["Passed, mean of 5 runs · dense", "Passed, mean of 5 runs · hybrid", "Gold section first · dense", "Gold section first · hybrid", "Gold section in the top 3 · dense", "Gold section in the top 3 · hybrid", "MRR · dense", "MRR · hybrid"]
+    y-axis "%" 75 --> 100
+    bar [97.2, 0, 81.4, 0, 97.7, 0, 89.1, 0]
+    bar [0, 95.9, 0, 90.7, 0, 97.7, 0, 93.4]
+```
+
 **The cases that failed, and why.** All other cases passed in every run on Groq, and failed on Gemini
 only by timing out.
 
