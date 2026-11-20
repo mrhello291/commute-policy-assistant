@@ -28,11 +28,31 @@ Without an API key the service still starts. Retrieval works, and questions get 
 | Tests (no network or key needed) | `docker compose run --rm app pytest` |
 | Evaluation set (uses the LLM from `.env`, about 6 min because it's paced for free-tier limits). Writes `evaluation/results/eval_set.jsonl` | `docker compose run --rm app python -m evaluation.run` |
 | Evaluation without a key (retrieval only). Writes `evaluation/results/retrieval-only.jsonl` | `docker compose run --rm app python -m evaluation.run --llm none` |
+| Re-score saved answers with the current checks (no LLM calls) | `docker compose run --rm app python -m evaluation.run --rescore evaluation/results/eval_set.jsonl` |
+| The same evaluation with hybrid retrieval. Writes `evaluation/results/hybrid.jsonl` | `docker compose run --rm app python -m evaluation.run --retriever hybrid` |
+| Run it 5 times and report mean ± std. Writes `evaluation/results/repeats/groq-dense/` and its summary. Resumes if a quota stops it | `docker compose run --rm app python -m evaluation.run --llm groq --retriever dense --repeat 5` |
 | Latency benchmark (server must be up) | `python scripts/bench.py` |
 
 **The evaluation set in the brief's format** (`id, input, expected, actual, pass, notes`) is
 [`evaluation/results/eval_set.jsonl`](evaluation/results/eval_set.jsonl), the scored run of the
 shipped configuration. `evaluation/cases.jsonl` is the runner's input (questions and expected facts).
+
+**What the evaluation shows** (58 cases; each property is checked in every case, not sampled). The
+submitted run is one sample, so the set was also run 5 times for each of two models and two
+retrievers: 20 runs, 1,160 questions.
+
+| Property | Submitted run | All 20 repeated runs |
+|---|---|---|
+| A cross-company question returns nothing from the other company | 58/58 cases retrieved only the asker's company's text, 5/5 cross-company questions refused, 0 leaks | 1,160/1,160 own company only, 100/100 refused, 0 leaks |
+| Every answer carries a citation you can check | 42/42 answers cited; 44/44 citations match the PDF (section, title, page numbers, quoted text) | 719/719 answers cited; 757/757 citations match the PDF |
+| After a policy update, only the new version answers | 58/58 cases retrieved and cited only the newest version (the run loads Yamuna v1, then v2) | 1,160/1,160 |
+| You can rerun the score and show a before and after | `evaluation.run` re-asks; `--repeat 5` gives mean ± std; `--rescore` re-scores saved answers; every run is saved, with before/after pairs | Dense vs hybrid and Groq vs Gemini, 5 runs each |
+| Overall (shipped: Groq, dense) | 57/58 passed; the right section was in the top 3 for 42 of 43 answerable questions | **56.4 ± 0.55** of 58 (56–57), no timeouts, p95 about 1.1 s |
+
+How the score moved from 38/43 to 57/58, which changes were real fixes and which were scoring bugs, and
+the full retrieval report are in [docs/EVALUATION.md](docs/EVALUATION.md#how-the-score-got-here). The
+repeated runs, the case-by-case causes and what went wrong while measuring are in
+[§3.8](docs/EVALUATION.md#38-repeated-runs-5-runs-each-two-models-two-retrievers).
 
 To run without Docker you need Python 3.11+: `pip install -e ".[dev]"`, then `uvicorn app.main:serve --factory`.
 
@@ -43,8 +63,8 @@ All settings are environment variables. They are read from `.env` and defined in
 | Variable | Default | Meaning |
 |---|---|---|
 | `GROQ_API_KEY` | – | Free key from console.groq.com. Never commit it |
-| `GEMINI_API_KEY` | – | Optional alternative provider (Google AI Studio free tier) |
-| `LLM_PROVIDER` | `auto` | `auto` (Groq, then Gemini, then none), `groq`, `gemini`, `none` |
+| `GEMINI_API_KEY` | – | Optional fallback provider (Google AI Studio free tier) |
+| `LLM_PROVIDER` | `auto` | `auto` (Groq, then Gemini, then none), `groq`, `gemini`, `none`. Groq comes first because it is faster: over 5 evaluation runs each, it never missed the deadline, while free-tier Gemini timed out on 13% of questions (see [Why Groq is the default](#why-groq-is-the-default)) |
 | `GROQ_MODEL` / `GEMINI_MODEL` | `openai/gpt-oss-20b` / `gemini-3.5-flash-lite` | Model names |
 | `RETRIEVER` | `dense` | `dense`, or `hybrid` (BM25 + dense, see the retrieval section) |
 | `CONTEXTUAL_HEADERS` | `true` | Index each chunk with its heading path (the measured retrieval improvement) |
@@ -496,8 +516,10 @@ which is a project of its own.
 - **Dense search ships; hybrid BM25 is built but off.** On 12–27 short chunks per company, with headers
   already giving the embedder the key words, hybrid fixed one case (`gom-04`, "salary") but broke two:
   generic matches such as "cab" and "office" pushed out the guest-travel section. It scored 41/43 against
-  42/43 for dense. It stays in the code (`RETRIEVER=hybrid`) because a larger, keyword-heavy policy set
-  could change that, and the evaluation can check it in one command.
+  42/43 for dense. Re-run on the 58 PDF cases it ranked better (gold section first 39/43 vs 35/43) but put
+  a gold section in the top 3 no more often (42/43 each). Over 5 runs each it passed 55.6 ± 0.55 against
+  dense's 56.4 ± 0.55. It stays in the code (`RETRIEVER=hybrid`) because a larger, keyword-heavy policy
+  set could change that, and the evaluation can check it in one command.
 - **Top 3, because that is the citation cap.** Only 3 excerpts reach the model, so all 3 can be cited.
   The cost shows in `yam-12` (*"Am I eligible for a 9:30 PM drop?"*): the eligibility sections rank 4th
   and 5th behind the night-travel ones, so the answer can leave out the grade and distance conditions.
@@ -571,11 +593,13 @@ when the time left runs out (enforced by the service, not only by the SDK's time
 starts with less than 0.5 s remaining. The worst case is a "try
 again" just under 3 s, never a hang.
 
-**Measured** (laptop, no GPU, Groq free tier). Details are in [docs/EVALUATION.md](docs/EVALUATION.md#3-results).
+**Measured** (laptop, no GPU, Groq free tier). Details are in [docs/EVALUATION.md](docs/EVALUATION.md#36-re-run-on-the-pdf-policies-with-citations-checked-against-the-pdf)
+and, for the repeated runs, [§3.8](docs/EVALUATION.md#38-repeated-runs-5-runs-each-two-models-two-retrievers).
 
 | Measurement | p50 | p95 | max | LLM calls |
 |---|---|---|---|---|
-| Evaluation set, 43 questions (service time) | 956 ms | **1322 ms** | 1829 ms | max 1, mean 0.88 |
+| Evaluation set, 58 questions on the PDF policies (service time) | 772 ms | **1303 ms** | 1409 ms | max 1, mean 0.90 |
+| The same set, 5 runs (median of the runs, with their range) | 746 ms (704–805) | **1122 ms** (897–1324) | | mean 0.90, no timeouts |
 | `bench.py` over HTTP, local server, 39 requests | 692 ms | **1222 ms** | 3186 ms † | max 1 |
 | `bench.py` over HTTP, Docker, after the fix † | 690 ms | **914 ms** | 1091 ms | max 1 |
 
@@ -585,8 +609,30 @@ when the deadline's time is up (`test_a_hanging_llm_call_is_cut_off_at_the_deadl
 covers the 22 requests that completed before Groq's free-tier **daily** token cap ran out. The other 56
 got a plain "try again" within about 0.3 s, which is the failure path working as designed.
 
-A full evaluation run uses about 55K of the free tier's 200K tokens a day for `gpt-oss-20b`, so you can do
-about 3 runs a day per key. Tests never touch the network.
+A full evaluation run uses about 55K–65K of the free tier's 200K tokens a day for `gpt-oss-20b`, so you
+can do 3 to 4 runs a day per key. If the quota runs out mid-run, `--repeat` throws that run away rather
+than scoring the rate-limit errors, and the same command continues later. Tests never touch the network.
+
+### Why Groq is the default
+
+The app can use Groq or Gemini, both on free tiers. Each was run 5 times over the 58 cases with the
+shipped dense retrieval:
+
+| | **Groq `gpt-oss-20b`** | Gemini 3.5 Flash-Lite |
+|---|---|---|
+| Passed, of 58 | **56.4 ± 0.55** (56–57) | 48.8 ± 3.2 (44–51) |
+| Wrong answers per run | 1.6 | 1.4 |
+| "Try again" (no reply before the deadline), in 290 questions | **0** | 39 |
+| p50 / p95 | **746 / 1122 ms** | 1547 / 2801 ms (the deadline) |
+| Own company only, newest version only, citations matching the PDF | every case | every case |
+
+The two are about equally accurate, so the choice is about speed, which is what the 3-second target
+measures. Gemini's slowest 5% of questions run into the 2.8 s deadline in every run, so they end as
+"try again". During one slow spell, 50 of 58 questions did. Gemini stays as the fallback
+(`LLM_PROVIDER=auto` uses it when there is no Groq key): employees would see more "try again" replies,
+but the repeats show no more wrong, uncited or leaked answers. Running these repeats also found that
+the Gemini path had never worked at all, because Google's API refuses a deadline under 10 s; that is
+fixed and tested.
 
 ---
 
@@ -622,12 +668,30 @@ included. Every required fact in an answer was in a section it cited. The one mi
 [docs/EVALUATION.md §3.6](docs/EVALUATION.md#36-re-run-on-the-pdf-policies-with-citations-checked-against-the-pdf).
 
 **Tried, measured, not shipped: hybrid BM25 + dense with reciprocal rank fusion** (`RETRIEVER=hybrid`).
-It scored 41/43, hit@1 0.839. It fixed the one dense failure ("salary" is a BM25 match) but lost two
-paraphrases to generic word matches ("cab", "office"). It costs one dependency, about 120 lines, a
-per-version in-memory index and about 2 ms per query. On 12–17 short chunks per company, with headers
-already giving the embedder the key terms, it adds noise more often than signal. The full analysis,
-including the variants tried and why they were dropped instead of tuned, is in
-[docs/EVALUATION.md](docs/EVALUATION.md#33-experiment-that-didnt-pay-off-hybrid-bm25--dense-rrf).
+On the 58 cases with the PDF policies (`evaluation/results/hybrid.jsonl`), same model and settings:
+
+| | **Dense (shipped)** | Hybrid |
+|---|---|---|
+| Passed, one run | **57 / 58** | 55 / 58 |
+| Passed, 5 runs (mean ± std, range) | **56.4 ± 0.55** (56–57) | 55.6 ± 0.55 (55–56) |
+| Wrong answers in 5 runs | 8: `yam-26` ×5, `gom-02` ×2, `yam-12` ×1 | 12: `yam-07` ×5, `gom-09` ×5, `med-06` ×2 |
+| Gold section ranked first | 35 / 43 | **39 / 43** |
+| Gold section in the top 3 (what the model sees) | 42 / 43 | 42 / 43 |
+| MRR | 0.891 | **0.934** |
+| Own company only · newest version only · leaks | 58/58 · 58/58 · 0 | 58/58 · 58/58 · 0 |
+
+Hybrid ranks better but doesn't find more: it fixes the intern question (BM25 matches "intern") and
+loses *"Can my wife ride along?"* (the policy says "family members", and generic matches on "office" and
+"cab" push it out). The 5 runs also show the model reacting to hybrid's excerpts: with the same three
+sections in hybrid's order, `gpt-oss-20b` says "not covered" to `gom-09` every time, and it does the same
+to `med-06` in 2 of 5 runs. From one run it had looked as if hybrid caused `gom-02`; over 5 runs hybrid
+passed it every time and dense failed it twice, so that one is the model. The gain is ordering inside
+the top 3, which doesn't turn into more correct answers, and it costs one dependency, about 120 lines
+and an in-memory index per policy version, so dense stays the default. The earlier comparison on the
+original policies, and the variants tried, are in
+[docs/EVALUATION.md §3.3](docs/EVALUATION.md#33-experiment-that-didnt-pay-off-hybrid-bm25--dense-rrf);
+this one is in [§3.7](docs/EVALUATION.md#37-dense-vs-hybrid-on-the-pdf-policies), and the 5-run
+comparison in [§3.8](docs/EVALUATION.md#38-repeated-runs-5-runs-each-two-models-two-retrievers).
 
 ---
 
@@ -644,6 +708,10 @@ including the variants tried and why they were dropped instead of tuned, is in
 - **A low evidence threshold (0.25).** A higher one would save more calls, but it would also block real
   paraphrases ("my wife" vs "family members"). The gate only handles obvious misses, and the model
   decides the grey zone.
+- **Groq as the default LLM, Gemini as the fallback.** Measured, not assumed: equally accurate, but
+  Groq never missed the deadline in 5 runs and free-tier Gemini missed it on 13% of questions (see
+  [Why Groq is the default](#why-groq-is-the-default)). The price is Groq's 200K tokens a day per free
+  key, about 150 questions, so a real deployment would need a paid tier.
 - **A local 22M-parameter embedder instead of an embedding API.** The quality is lower than hosted
   embeddings. In return, the service, tests and evaluation all run without any key or quota, queries
   avoid a network hop of about 200–400 ms, and the 10-minute check can't fail on a missing key.
@@ -673,8 +741,9 @@ app/
 data/policies/   three companies' policies as PDFs (Yamuna has v1 and v2)
 data/archive/markdown-policies/  the Markdown the PDFs were generated from
 data/employees.json  mock HR directory: 3–4 employees per company, one policy admin each
-evaluation/      cases.jsonl (questions), scoring, runner, results/eval_set.jsonl (scored set)
-tests/           ~485 tests, no network
+evaluation/      cases.jsonl (questions), scoring, runner, results/eval_set.jsonl (scored set),
+                 results/repeats/ (5 runs per model and retriever, combined by repeats.py)
+tests/           ~500 tests, no network
 scripts/bench.py latency against a running server
 scripts/make_policy_pdfs.py  builds the sample PDFs from the archived Markdown
 docs/EVALUATION.md  evaluation report
@@ -683,10 +752,12 @@ docs/INGESTION.md   ingestion design: atomic version switch, failure points, rec
 
 ## Known failures and limitations
 
-These are in [docs/EVALUATION.md](docs/EVALUATION.md#4-known-failures). In short: one paraphrase
-(*"money cut from my salary"*) gets a safe "not covered" because retrieval misses the no-show section.
-Eligibility answers can omit a condition when the relevant sections rank below the top 3. The evaluation
-set is small (58 cases), so one case is about 2 points.
+These are in [docs/EVALUATION.md](docs/EVALUATION.md#4-known-failures). In short: over 5 runs of the
+shipped setting, one question (*"Can an intern ride the company cab?"*) gets a safe "not covered" every
+time because dense retrieval misses the intern section. `gom-02` (*"Can I book a cab on Saturday?"*)
+failed in 2 of 5 runs, because the model sometimes reads "transport is not provided on Saturdays" as no
+rule at all. Eligibility answers can omit a condition when the relevant sections rank below the top 3.
+The evaluation set is small (58 cases), so one case is about 2 points.
 
 **The sample policies are short, as the brief asks, and real ones are not.** The brief describes real
 policies as 10 to 30 pages but asks for "three short policy documents". Yamuna v2 is about 1,200 words
