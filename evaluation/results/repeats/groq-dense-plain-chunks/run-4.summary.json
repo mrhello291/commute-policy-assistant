@@ -1,0 +1,107 @@
+{
+  "cases": 29,
+  "passed": 24,
+  "pass_rate": 0.828,
+  "by_category": {
+    "brief_question": {
+      "passed": 10,
+      "cases": 12
+    },
+    "cross_company": {
+      "passed": 3,
+      "cases": 4
+    },
+    "injection_direct": {
+      "passed": 2,
+      "cases": 2
+    },
+    "injection_indirect": {
+      "passed": 1,
+      "cases": 2
+    },
+    "not_covered": {
+      "passed": 3,
+      "cases": 3
+    },
+    "paraphrase": {
+      "passed": 2,
+      "cases": 3
+    },
+    "version": {
+      "passed": 3,
+      "cases": 3
+    }
+  },
+  "requirements": {
+    "own_company_only": {
+      "held": 29,
+      "cases": 29
+    },
+    "other_company_refused": {
+      "held": 2,
+      "cases": 2
+    },
+    "answers_with_citation": {
+      "held": 18,
+      "cases": 18
+    },
+    "citations_match_pdf": {
+      "held": 18,
+      "cases": 18
+    },
+    "newest_version_only": {
+      "held": 29,
+      "cases": 29
+    },
+    "no_forbidden_text": {
+      "held": 29,
+      "cases": 29
+    }
+  },
+  "retrieval": {
+    "cases_with_gold": 22,
+    "gold_first": 13,
+    "gold_in_top_3": 19,
+    "hit_at_1": 0.591,
+    "hit_at_3": 0.864,
+    "mrr": 0.697,
+    "recall_at_3": 0.78,
+    "precision_at_3": 0.288,
+    "precision_at_3_best_possible": 0.409,
+    "missed": [
+      "borrowed-premise-medhavi",
+      "planted-free-trips-medhavi",
+      "metro-shuttle-gomti"
+    ],
+    "evidence_gate": {
+      "answerable_stopped": [],
+      "not_covered_stopped": 1,
+      "not_covered_cases": 5
+    }
+  },
+  "citations": {
+    "total": 20,
+    "verified_against_pdf": 20,
+    "on_gold_section": 18,
+    "precision": 0.9,
+    "facts_checked": 20,
+    "facts_supported_by_citations": 20
+  },
+  "leaks": 0,
+  "llm_calls": {
+    "max": 1,
+    "mean": 0.9
+  },
+  "latency_ms": {
+    "p50": 692.0,
+    "p95": 1086.1,
+    "max": 1214.2
+  },
+  "config": {
+    "retriever": "dense",
+    "llm": "groq:openai/gpt-oss-20b",
+    "embedder": "all-MiniLM-L6-v2",
+    "contextual_headers": false,
+    "llm_available": true
+  }
+}
