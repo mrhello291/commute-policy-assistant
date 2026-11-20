@@ -36,6 +36,11 @@ cp .env.example .env        # then put your free Groq key in GROQ_API_KEY
 docker compose up           # builds, loads the sample policies, serves on :8000
 ```
 
+You only need Docker with Compose 2.24 or newer (Docker Desktop includes it) and port 8000 free; no
+Python on the host. The first `up` builds the image, which takes about 2 minutes, needs internet
+access for the Python packages and makes an image of about 900 MB. Later starts take a few seconds.
+The Groq key is free and needed only for answers (see below).
+
 Open **http://localhost:8000**. You land on the sign-in page, which lists the sample employees (click
 one to fill the form). After signing in you get the chat page, and the page shows your token (masked,
 with a copy button) for the API docs at http://localhost:8000/docs: press **Authorize** and paste it.
