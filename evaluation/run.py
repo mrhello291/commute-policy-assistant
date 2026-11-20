@@ -253,7 +253,9 @@ def write_results(rows: list[dict], out: Path, config: dict) -> dict:
             line = {
                 "id": case["id"],
                 "input": {"company": case["company"], "question": case["question"]},
-                "expected": {**case["expected"], "category": case["category"]},
+                # The reference answer and the reason the case exists travel with the result,
+                # so each line can be judged on its own.
+                "expected": {**case["expected"], "category": case["category"], "why": case.get("why", "")},
                 "actual": row["actual"],
                 "pass": row["score"].passed,
                 "notes": "; ".join(row["notes"]) or "ok",
@@ -283,11 +285,12 @@ def rescore(path: Path, policy_dir: Path = POLICY_DIR) -> dict:
 
     rows = []
     for line in lines:
-        expected = {k: v for k, v in line["expected"].items() if k != "category"}
+        expected = {k: v for k, v in line["expected"].items() if k not in ("category", "why")}
         case = {
             "id": line["id"],
             **line["input"],
             "category": line["expected"]["category"],
+            "why": line["expected"].get("why", ""),
             "expected": expected,
         }
         actual = line["actual"]

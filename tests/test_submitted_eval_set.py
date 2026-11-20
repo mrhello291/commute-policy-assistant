@@ -7,7 +7,12 @@ an experiment written to the wrong place can't go unnoticed.
 
 import json
 
+import pytest
+
 from evaluation.run import CASES_FILE, EVAL_SET_FILE, REPEATS_DIR
+
+if not EVAL_SET_FILE.exists():
+    pytest.skip("no submitted run yet: python -m evaluation.run --submit", allow_module_level=True)
 
 REQUIRED_FIELDS = ["id", "input", "expected", "actual", "pass", "notes"]
 

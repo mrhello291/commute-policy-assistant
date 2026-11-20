@@ -313,7 +313,7 @@ font with no Unicode mapping. `tests/test_sample_pdfs.py` parses each PDF and re
 number, title, heading path and body to equal its Markdown source exactly. `tests/test_pdf_parser.py`
 draws small PDFs with one layout problem each (47 cases, including the refusals). The evaluation ran on
 the PDFs: retrieval scores are identical to the Markdown run to three decimals
-([evaluation report §3.6](EVALUATION.md#36-re-run-on-the-pdf-policies-with-citations-checked-against-the-pdf)).
+([old evaluation report §3.6](OLD_EVALUATION.md#36-re-run-on-the-pdf-policies-with-citations-checked-against-the-pdf)).
 
 **PDFs from other tools.** Passing on our own generator's PDFs only shows the parser reads that one
 layout, so `scripts/check_pdf_producers.py` lays the same four policies out the way other tools do and
@@ -388,7 +388,7 @@ with the heading's title, so a reader can still find it.
 - **The evaluation checks every citation against the PDF**, reading the raw page text independently of
   the parser: section number and title on the start page, the excerpt and the whole section on the
   cited pages, no extra pages. It also checks that the facts in each answer appear in the sections it
-  cites. See [the evaluation report](EVALUATION.md#21-how-a-case-is-judged).
+  cites. See [the evaluation report](OLD_EVALUATION.md#21-how-a-case-is-judged).
 
 How the citation in the README's chat screenshot is built. The model only ever picks a label; everything a
 reader sees in the citation comes from metadata stored at ingestion, along a path the model isn't on:
@@ -481,7 +481,7 @@ nothing in this repo claims how a local model would score or how fast it would b
   `complete_json`, plus an `LLM_PROVIDER` value. On a machine with a GPU, `python -m evaluation.run --llm
   <provider> --repeat 5` would compare it with Groq and Gemini on the same 58 cases, the same checks
   and the same deadline, as in
-  [EVALUATION.md §3.8](EVALUATION.md#38-repeated-runs-5-runs-each-two-models-two-retrievers).
+  [OLD_EVALUATION.md §3.8](OLD_EVALUATION.md#38-repeated-runs-5-runs-each-two-models-two-retrievers).
 
 
 ## 11. Staying inside the numbers
@@ -544,8 +544,8 @@ second, so its repair call still has time (`tests/test_config.py` checks both).
 A rate limit isn't retried at all, and retrieval that passes 0.8 s ends the question with "try again"
 before any LLM call.
 
-**Measured** (laptop, no GPU, Groq free tier). Details are in [docs/EVALUATION.md](EVALUATION.md#36-re-run-on-the-pdf-policies-with-citations-checked-against-the-pdf)
-and, for the repeated runs, [§3.8](EVALUATION.md#38-repeated-runs-5-runs-each-two-models-two-retrievers).
+**Measured** (laptop, no GPU, Groq free tier). Details are in [docs/EVALUATION.md](OLD_EVALUATION.md#36-re-run-on-the-pdf-policies-with-citations-checked-against-the-pdf)
+and, for the repeated runs, [§3.8](OLD_EVALUATION.md#38-repeated-runs-5-runs-each-two-models-two-retrievers).
 
 | Measurement | p50 | p95 | max | LLM calls |
 |---|---|---|---|---|

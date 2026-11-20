@@ -426,12 +426,13 @@ load results and the bugs they found are in [design §11](docs/DESIGN.md#11-stay
 
 ## Evaluation
 
-58 questions across the three companies (`evaluation/cases.jsonl`), scored in code with no LLM judge,
-and every citation checked against the raw PDF text. The submitted run
-([`evaluation/results/eval_set.jsonl`](evaluation/results/eval_set.jsonl), in the brief's
-`id, input, expected, actual, pass, notes` format) passed 57/58, and five repeated runs of the shipped
-setting passed 56.4 ± 0.55. The method, every run, what changed between them and the known failures
-are in [docs/EVALUATION.md](docs/EVALUATION.md).
+29 questions (`evaluation/cases.jsonl`), each with a written reference answer and a stated reason for
+being in the set. The core is the brief's own four questions asked at all three companies, whose
+policies disagree on exactly those points. The rest cover version switches, silent policies,
+cross-company requests and injected instructions. Scoring is code, not an LLM judge, and every citation
+is checked against the raw PDF text. The method and results are in
+[docs/EVALUATION.md](docs/EVALUATION.md). The earlier 58-case set is kept in
+[docs/OLD_EVALUATION.md](docs/OLD_EVALUATION.md).
 
 ## Retrieval improvement (bonus)
 
@@ -449,7 +450,7 @@ supplies it, for about 15 tokens per chunk at indexing time and nothing at query
 **Measured, not shipped: hybrid BM25 + dense** (`RETRIEVER=hybrid`). It ranks the right section first
 more often (39/43 vs 35/43) but doesn't put it in the top 3 more often (42/43 each), and over 5 runs
 it passed fewer cases (55.6 vs 56.4). Details in
-[EVALUATION.md §3.7–3.8](docs/EVALUATION.md#37-dense-vs-hybrid-on-the-pdf-policies).
+[OLD_EVALUATION.md §3.7–3.8](docs/OLD_EVALUATION.md#37-dense-vs-hybrid-on-the-pdf-policies).
 
 ## The sample policies
 
@@ -495,7 +496,7 @@ docs/            DESIGN.md, INGESTION.md, EVALUATION.md, POLICY_DATA.md, images/
 
 - **Retrieval misses.** Over 5 runs, *"Can an intern ride the company cab?"* always gets a safe "not
   covered" (dense search misses the intern section), and an eligibility answer can leave out a
-  condition that ranks below the top 3 ([EVALUATION.md §4](docs/EVALUATION.md#4-known-failures)).
+  condition that ranks below the top 3 ([OLD_EVALUATION.md §4](docs/OLD_EVALUATION.md#4-known-failures)).
 - **Short policies.** The brief asks for three short documents; real ones run to 10–30 pages, which
   would mean more sections competing in retrieval and more pressure on the 3-chunk cap.
 - **One process.** The token store, policy registry and ingestion lock assume a single server process.

@@ -57,7 +57,7 @@ def test_runner_writes_the_required_fields(tmp_path):
         llm="none",
         embedder="hashing",
         cases=str(CASES_FILE),
-        only="yam-01,yam-16,med-02",
+        only="escort-time-yamuna,names-other-company-gomti,airport-medhavi",
         no_headers=False,
         name=None,
         out=str(out),
@@ -66,11 +66,12 @@ def test_runner_writes_the_required_fields(tmp_path):
     summary = run(args)
 
     lines = [json.loads(line) for line in out.read_text().splitlines()]
-    assert [line["id"] for line in lines] == ["yam-01", "yam-16", "med-02"]
+    # In the order of cases.jsonl, not of --only.
+    assert [line["id"] for line in lines] == ["airport-medhavi", "escort-time-yamuna", "names-other-company-gomti"]
     for line in lines:
         assert set(line) == {"id", "input", "expected", "actual", "pass", "notes"}
         assert isinstance(line["pass"], bool)
-    other_company = lines[1]
+    other_company = lines[2]
     assert other_company["actual"]["status"] == "other_company" and other_company["pass"]
     assert summary["config"]["llm_available"] is False
     assert out.with_suffix(".summary.json").exists()
@@ -85,7 +86,7 @@ def test_rescore_gives_the_same_scores_for_the_same_answers(tmp_path):
         llm="none",
         embedder="hashing",
         cases=str(CASES_FILE),
-        only="yam-01,yam-16,med-02",
+        only="escort-time-yamuna,names-other-company-gomti,airport-medhavi",
         no_headers=False,
         name=None,
         out=str(out),

@@ -16,7 +16,7 @@ def _args(**overrides):
         "llm": "none",
         "embedder": "hashing",
         "cases": str(CASES_FILE),
-        "only": "yam-01,yam-16",
+        "only": "escort-time-yamuna,names-other-company-gomti",
         "no_headers": False,
         "name": "test",
         "out": None,
