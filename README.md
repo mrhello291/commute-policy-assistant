@@ -513,6 +513,11 @@ docs/            DESIGN.md, INGESTION.md, EVALUATION.md, POLICY_DATA.md, images/
   the eligibility sections rank 9th to 18th at Yamuna and Gomti; the proposed fix is a rule in code
   that always includes the eligibility sections for eligibility questions
   ([EVALUATION.md §6](docs/EVALUATION.md#6-known-failures)).
+- **The other-company check can still refuse an address.** A client's short name followed by an
+  address word (*Gomti Nagar*, *Yamuna Expressway*) reads as a place, but the address words are a
+  fixed list: *"I stay in Yamuna Bazar"* (the list has "bazaar"), *"I live across the Yamuna"* and
+  *"Gomti Apartments"* are still refused as questions about another company
+  ([design §13](docs/DESIGN.md#13-trade-offs)).
 - **Short policies.** The brief asks for three short documents; real ones run to 10–30 pages, which
   would mean more sections competing in retrieval and more pressure on the 3-chunk cap.
 - **One process.** The token store, policy registry and ingestion lock assume a single server process.

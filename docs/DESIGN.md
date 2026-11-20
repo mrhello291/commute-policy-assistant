@@ -670,9 +670,16 @@ fixed and tested.
   built from the wrong policy) is a wrong answer that looks right. Addresses are not refused: a short
   name followed by an address word (*Gomti Nagar*, *Yamuna Expressway*, *… Road*, *… Sector*) reads as
   a place. The address words are a fixed list, so one that isn't on it is still refused (*Gomti
-  Riverfront* reads as a place, *Gomti Riverside Apartments* doesn't), and a client whose short name
-  is an everyday word ("Delta") would need its full name matched only. With hundreds of clients, the names to match
+  Riverfront* reads as a place, *Gomti Riverside Apartments* doesn't). Found while checking the fix:
+  *"I stay in Yamuna Bazar"* is refused because the list spells it "bazaar", and *"I live across the
+  Yamuna"* is refused because no word follows the name. A client whose short name is an everyday word
+  ("Delta") would need its full name matched only. With hundreds of clients, the names to match
   should come from the client directory, chosen when a client is onboarded, not from company ids.
+- **The refusal tells a signed-in employee that a name is a client.** Asking about *"Gomti
+  Logistics"* gets the other-company reply, while a company that isn't a client doesn't. Sign-in no
+  longer lists or confirms clients, but this check still does, to employees of other clients who
+  guess a full name. Accepted: removing it would bring back answers like "Gomti's rule is…" built
+  from the caller's own policy.
 - **A low evidence threshold (0.25).** A higher one would save more calls, but it would also block real
   paraphrases ("my wife" vs "family members"). The gate only handles obvious misses, and the model
   decides the grey zone.
