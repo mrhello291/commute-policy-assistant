@@ -101,9 +101,9 @@ def test_sample_accounts_listed_only_in_dev(client, settings):
         "role": "employee",
         "active": False,
     } in accounts
-    prod = TestClient(create_app(settings.model_copy(update={"app_env": Environment.PROD})))
-    assert prod.get("/dev/accounts").status_code == 404
-    assert prod.post("/dev/token", json={"subject": "x", "company_id": "a"}).status_code == 404
+    with TestClient(create_app(settings.model_copy(update={"app_env": Environment.PROD}))) as prod:
+        assert prod.get("/dev/accounts").status_code == 404
+        assert prod.post("/dev/token", json={"subject": "x", "company_id": "a"}).status_code == 404
 
 
 def test_store_outage_fails_closed_with_503(client):

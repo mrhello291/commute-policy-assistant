@@ -67,6 +67,16 @@ class StoreThatCannotPrune(ChromaPolicyStore):
         raise OSError("disk unavailable")
 
 
+_open_stores: list[ChromaPolicyStore] = []
+
+
+@pytest.fixture(autouse=True)
+def close_stores():
+    yield
+    while _open_stores:
+        _open_stores.pop().close()
+
+
 @pytest.fixture
 def paths(tmp_path):
     return tmp_path / "registry.db", tmp_path / f"chroma-{uuid.uuid4().hex}"
@@ -75,6 +85,7 @@ def paths(tmp_path):
 def make_service(paths, embedder=None, store=None):
     registry = PolicyRegistry(paths[0])
     store = store or ChromaPolicyStore(paths[1])
+    _open_stores.append(store)
     return IngestionService(registry, store, embedder or HashingEmbedder()), registry, store
 
 

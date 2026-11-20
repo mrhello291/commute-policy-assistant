@@ -158,50 +158,55 @@ def run(args: argparse.Namespace) -> dict:
     cases = load_cases(Path(args.cases), set(args.only.split(",")) if args.only else None)
     with tempfile.TemporaryDirectory(prefix="policy-eval-") as tmp:
         settings = build_settings(args, Path(tmp))
-        container = Container(settings)
-        checker = PdfCitationChecker(settings.policy_seed_dir)
-        live_versions = newest_versions(settings.policy_seed_dir)
-        container.startup()
-        llm_available = container.llm.name != "none"
+        with Container(settings) as container:
+            return _run_cases(args, cases, settings, container)
+
+
+def _run_cases(args: argparse.Namespace, cases: list[dict], settings: Settings, container: Container) -> dict:
+    """Seed the container's policies, ask every case, score it and write the results."""
+    checker = PdfCitationChecker(settings.policy_seed_dir)
+    live_versions = newest_versions(settings.policy_seed_dir)
+    container.startup()
+    llm_available = container.llm.name != "none"
+    print(
+        f"evaluating {len(cases)} cases | retriever={container.retriever.name} "
+        f"llm={container.llm.name} embedder={container.embedder.name}",
+        file=sys.stderr,
+    )
+
+    rows = []
+    for i, case in enumerate(cases, start=1):
+        result, harness_notes = ask_with_backoff(container, case)
+        if getattr(args, "stop_on_rate_limit", False) and result.diagnostics.failure == "LLMRateLimited":
+            raise QuotaExhausted(f"still rate limited at case {case['id']} ({i}/{len(cases)})")
+        actual = to_actual(result)
+        citations = checker.check(case, actual)
+        score = score_case(case, actual, llm_available, citations, live_versions)
+        rows.append(
+            {
+                "case": case,
+                "actual": actual,
+                "score": score,
+                "citations": citations,
+                "notes": harness_notes + score.notes,
+            }
+        )
+        mark = "PASS" if score.passed else "FAIL"
         print(
-            f"evaluating {len(cases)} cases | retriever={container.retriever.name} "
-            f"llm={container.llm.name} embedder={container.embedder.name}",
+            f"[{i:2}/{len(cases)}] {mark} {case['id']:8} {actual['status']:13} "
+            f"{actual['latency_ms']:7.0f} ms  {'; '.join(rows[-1]['notes'])}",
             file=sys.stderr,
         )
+        if llm_available and actual["llm_calls"] and args.pace:
+            time.sleep(args.pace)
 
-        rows = []
-        for i, case in enumerate(cases, start=1):
-            result, harness_notes = ask_with_backoff(container, case)
-            if getattr(args, "stop_on_rate_limit", False) and result.diagnostics.failure == "LLMRateLimited":
-                raise QuotaExhausted(f"still rate limited at case {case['id']} ({i}/{len(cases)})")
-            actual = to_actual(result)
-            citations = checker.check(case, actual)
-            score = score_case(case, actual, llm_available, citations, live_versions)
-            rows.append(
-                {
-                    "case": case,
-                    "actual": actual,
-                    "score": score,
-                    "citations": citations,
-                    "notes": harness_notes + score.notes,
-                }
-            )
-            mark = "PASS" if score.passed else "FAIL"
-            print(
-                f"[{i:2}/{len(cases)}] {mark} {case['id']:8} {actual['status']:13} "
-                f"{actual['latency_ms']:7.0f} ms  {'; '.join(rows[-1]['notes'])}",
-                file=sys.stderr,
-            )
-            if llm_available and actual["llm_calls"] and args.pace:
-                time.sleep(args.pace)
-
-        config = {
-            "retriever": container.retriever.name,
-            "llm": container.llm.name,
-            "embedder": container.embedder.name,
-            "contextual_headers": settings.contextual_headers,
-            "llm_available": llm_available,
-        }
+    config = {
+        "retriever": container.retriever.name,
+        "llm": container.llm.name,
+        "embedder": container.embedder.name,
+        "contextual_headers": settings.contextual_headers,
+        "llm_available": llm_available,
+    }
     return write_results(rows, output_path(args, settings.retriever, llm_available), config)
 
 

@@ -26,7 +26,9 @@ def make_chunk(company="acme", version=1, section="1", text="Escort after 9 PM."
 
 @pytest.fixture
 def store(tmp_path):
-    return ChromaPolicyStore(tmp_path / f"chroma-{uuid.uuid4().hex}")
+    store = ChromaPolicyStore(tmp_path / f"chroma-{uuid.uuid4().hex}")
+    yield store
+    store.close()
 
 
 @pytest.fixture

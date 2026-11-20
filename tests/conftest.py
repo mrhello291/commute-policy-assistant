@@ -36,9 +36,9 @@ def settings(tmp_path) -> Settings:
 @pytest.fixture(scope="module")
 def seeded_container(tmp_path_factory) -> Container:
     """A container with the sample policies loaded, shared within a test module."""
-    container = Container(make_settings(tmp_path_factory.mktemp("seeded")))
-    container.startup()
-    return container
+    with Container(make_settings(tmp_path_factory.mktemp("seeded"))) as container:
+        container.startup()
+        yield container
 
 
 @pytest.fixture

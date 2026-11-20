@@ -40,9 +40,9 @@ def test_bm25_matches_exact_terms():
 
 @pytest.fixture
 def container(settings):
-    container = Container(settings.model_copy(update={"retriever": RetrieverKind.HYBRID}))
-    container.startup()
-    return container
+    with Container(settings.model_copy(update={"retriever": RetrieverKind.HYBRID})) as container:
+        container.startup()
+        yield container
 
 
 def test_container_builds_hybrid_retriever(container):

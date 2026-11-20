@@ -36,7 +36,8 @@ def exploding_client(settings):
     def boom():
         raise RuntimeError("database password is hunter2")
 
-    return TestClient(app, raise_server_exceptions=False)
+    yield TestClient(app, raise_server_exceptions=False)
+    app.state.container.close()
 
 
 def test_unexpected_error_hides_details(exploding_client):
