@@ -415,8 +415,8 @@ Each has a full section, with the reasoning and the numbers, in [docs/DESIGN.md]
 
 | Measured | p50 | p95 |
 |---|---|---|
-| Evaluation set, 58 questions, one at a time | 772 ms | 1303 ms |
-| The same set, 5 runs (median of the runs) | 746 ms | 1122 ms |
+| Evaluation set, 29 questions, one at a time (submitted run) | 791 ms | 1077 ms |
+| The same set, 5 runs (median of the runs) | 723 ms | 1208 ms |
 | `bench.py` over HTTP, Docker | 690 ms | 914 ms |
 | `load_test`, 16 questions at once, stand-in LLM, 2 runs | 0.82–0.86 s | 1.25–1.27 s |
 
@@ -430,27 +430,38 @@ load results and the bugs they found are in [design §11](docs/DESIGN.md#11-stay
 being in the set. The core is the brief's own four questions asked at all three companies, whose
 policies disagree on exactly those points. The rest cover version switches, silent policies,
 cross-company requests and injected instructions. Scoring is code, not an LLM judge, and every citation
-is checked against the raw PDF text. The method and results are in
+is checked against the raw PDF text. The shipped system passed **25 of 29 in each of 5 runs**, and the submitted run
+([`evaluation/results/eval_set.jsonl`](evaluation/results/eval_set.jsonl), in the brief's
+`id, input, expected, actual, pass, notes` format) scored the same. In every case of every run:
+- nothing leaked between companies;
+- no injection was obeyed;
+- only the newest version answered;
+- every citation matched the PDF.
+
+The method, the results, the four known failures and the before-and-after comparisons are in
 [docs/EVALUATION.md](docs/EVALUATION.md). The earlier 58-case set is kept in
 [docs/OLD_EVALUATION.md](docs/OLD_EVALUATION.md).
 
 ## Retrieval improvement (bonus)
 
-**Shipped: contextual section headers.** Each chunk is embedded as `<document title> > <section path>`
-followed by its text. On the original 43 questions, same model, back to back:
+**Shipped: section headings in the embedded text.** Each chunk is embedded as
+`<document title> > <section path>` followed by its text. Same 29 questions, same model and prompt, 5
+runs each:
 
-| | Plain chunks | **Contextual headers** |
+| | Plain chunks | **Section headings** |
 |---|---|---|
-| Evaluation passed | 38 / 43 | **42 / 43** |
-| Retrieval hit@1 / hit@3 / MRR | 0.839 / 0.903 / 0.871 | **0.871 / 0.968 / 0.919** |
+| Passed, of 29 | 23.8 ± 0.45 | **25.0 ± 0** |
+| Right section ranked first / in the top 3 (of 22) | 13 / 19 | **16 / 20** |
+| MRR | 0.697 | **0.818** |
 
 Short sections like *"Each trip is capped at INR 600."* barely say what they are about; the heading
-supplies it, for about 15 tokens per chunk at indexing time and nothing at query time.
+supplies it, for about 15 tokens per chunk at indexing time and nothing at query time. It fixed two
+cases and lost one ([EVALUATION.md §5.3](docs/EVALUATION.md#53-retrieval-improvement-bonus-section-headings-in-the-embedded-text)).
 
-**Measured, not shipped: hybrid BM25 + dense** (`RETRIEVER=hybrid`). It ranks the right section first
-more often (39/43 vs 35/43) but doesn't put it in the top 3 more often (42/43 each), and over 5 runs
-it passed fewer cases (55.6 vs 56.4). Details in
-[OLD_EVALUATION.md §3.7–3.8](docs/OLD_EVALUATION.md#37-dense-vs-hybrid-on-the-pdf-policies).
+**Measured, not shipped: hybrid BM25 + dense** (`RETRIEVER=hybrid`). Over 5 runs it passed 23.0
+against dense's 25.0. Its keyword matches on words like "cab" and "office" pushed the right section
+out of the top 3 for two questions, and it fixed none that dense misses.
+Details in [EVALUATION.md §5.4](docs/EVALUATION.md#54-measured-not-shipped-hybrid-bm25--dense).
 
 ## The sample policies
 
@@ -484,8 +495,9 @@ app/
 data/policies/   three companies' policies as PDFs (Yamuna has v1 and v2)
 data/archive/markdown-policies/  the Markdown the PDFs were generated from
 data/employees.json  mock HR directory: 3–4 employees per company, one policy admin each
-evaluation/      cases.jsonl (questions), scoring, runner, results/ (scored runs, 5-run repeats)
-tests/           561 tests, no network; fixtures/pdf_producers/ holds PDFs made by Word, Writer and Chrome
+evaluation/      cases.jsonl (29 questions, each with a reason and a reference answer), scoring,
+                 runner, results/ (submitted run, 5-run repeats), archive/58-cases/ (the retired set)
+tests/           589 tests, no network; fixtures/pdf_producers/ holds PDFs made by Word, Writer and Chrome
 scripts/         bench.py (latency), load_test.py (many questions at once), make_policy_pdfs.py,
                  check_pdf_producers.py (reads the policies laid out by Word, Writer and Chrome)
 constraints.txt  exact versions of every package in the tested image
@@ -494,9 +506,11 @@ docs/            DESIGN.md, INGESTION.md, EVALUATION.md, POLICY_DATA.md, images/
 
 ## Known limitations
 
-- **Retrieval misses.** Over 5 runs, *"Can an intern ride the company cab?"* always gets a safe "not
-  covered" (dense search misses the intern section), and an eligibility answer can leave out a
-  condition that ranks below the top 3 ([OLD_EVALUATION.md §4](docs/OLD_EVALUATION.md#4-known-failures)).
+- **The brief's 9:30 PM question fails.** *"Am I eligible for a 9:30 PM drop?"* fails at all three
+  companies, in every run. The answer needs the grade, distance and night-window sections, and only
+  the top 3 excerpts reach the model; the question's words pull in night-travel sections instead. At
+  Yamuna the answer is usually an unconditional "yes". The likely fix is to show the model 5 excerpts
+  and let it cite at most 3 ([EVALUATION.md §6](docs/EVALUATION.md#6-known-failures)).
 - **Short policies.** The brief asks for three short documents; real ones run to 10–30 pages, which
   would mean more sections competing in retrieval and more pressure on the 3-chunk cap.
 - **One process.** The token store, policy registry and ingestion lock assume a single server process.
