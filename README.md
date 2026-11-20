@@ -20,6 +20,16 @@ Open **http://localhost:8000**. You land on the sign-in page, which lists the sa
 one to fill the form). After signing in you get the chat page, and the page shows your token (masked,
 with a copy button) for the API docs at http://localhost:8000/docs: press **Authorize** and paste it.
 
+<p>
+  <img src="docs/images/sign-in.png" alt="The sign-in page: a company and employee ID form, and the table of sample accounts" width="38%">
+  &nbsp;
+  <img src="docs/images/chat.png" alt="The chat page with three answers: an airport-trip answer citing §6.2 on pages 2–3, a not-covered reply about dogs, and a refusal of a question about another company" width="58%">
+</p>
+
+*Signed in as `YAM-1001`, three questions and three outcomes: an answer citing §6.2 of the live v2
+policy on pages 2–3, a "not covered" for a question the policy is silent on, and a refusal of a
+question about another company (0 LLM calls). Real replies from the running service with Groq.*
+
 Without an API key the service still starts. Retrieval works, and questions get a clear
 "the assistant isn't available" reply instead of an error.
 
@@ -768,6 +778,7 @@ scripts/bench.py latency against a running server
 scripts/make_policy_pdfs.py  builds the sample PDFs from the archived Markdown
 docs/EVALUATION.md  evaluation report
 docs/INGESTION.md   ingestion design: atomic version switch, failure points, recovery
+docs/images/        screenshots of the sign-in and chat pages
 ```
 
 ## Known failures and limitations
