@@ -15,7 +15,6 @@ plain message. Nothing in here raises to the caller for expected problems.
 """
 
 import logging
-import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
@@ -24,6 +23,7 @@ from enum import StrEnum
 
 from app import messages
 from app.answering.citations import Citation, render_citations
+from app.answering.companies import CompanyName, names_any
 from app.answering.prompt import Prompt, PromptBuilder
 from app.answering.schema import answer_json_schema
 from app.answering.validator import AnswerRejected, AnswerValidator, ValidatedAnswer
@@ -127,8 +127,8 @@ class QuestionAnsweringService:
         # A question about another client's policy is refused in code. Letting
         # the model handle it risks an answer like "Gomti's rule is ..."
         # built from the caller's own policy, which is wrong and confusing.
-        others = self._other_company_names(company_id)
-        if _mentions_any(question, others):
+        others = self._other_companies(company_id)
+        if names_any(question, others):
             message = messages.OTHER_COMPANY.format(company=policy.company_name)
             return AnswerResult(AnswerStatus.OTHER_COMPANY, message, policy=policy, diagnostics=diagnostics)
 
@@ -172,7 +172,7 @@ class QuestionAnsweringService:
         self,
         prompt: Prompt,
         policy: PolicyVersion,
-        other_companies: list[str],
+        other_companies: list[CompanyName],
         budget: CallBudget,
         deadline: Deadline,
         diagnostics: Diagnostics,
@@ -247,20 +247,16 @@ class QuestionAnsweringService:
             diagnostics=diagnostics,
         )
 
-    def _other_company_names(self, company_id: str) -> list[str]:
-        names = []
-        for other_id, other_name in self._registry.active_companies().items():
-            if other_id != company_id:
-                names.extend([other_name, other_id])
-        return names
+    def _other_companies(self, company_id: str) -> list[CompanyName]:
+        return [
+            CompanyName(other_id, other_name)
+            for other_id, other_name in self._registry.active_companies().items()
+            if other_id != company_id
+        ]
 
     @staticmethod
     def _try_again(policy: PolicyVersion | None, diagnostics: Diagnostics) -> AnswerResult:
         return AnswerResult(AnswerStatus.TRY_AGAIN, messages.TRY_AGAIN, policy=policy, diagnostics=diagnostics)
-
-
-def _mentions_any(text: str, names: list[str]) -> bool:
-    return any(re.search(rf"\b{re.escape(name)}\b", text, re.IGNORECASE) for name in names)
 
 
 def _normalise(question: str) -> str:

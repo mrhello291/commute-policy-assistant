@@ -7,11 +7,12 @@ repeating the planted instruction patterns the scanner knows about.
 """
 
 import json
-import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from pydantic import ValidationError
 
+from app.answering.companies import CompanyName, names_any
 from app.answering.schema import AnswerDraft
 from app.errors import AppError
 from app.policies.scanner import InjectionScanner
@@ -37,7 +38,7 @@ class AnswerValidator:
         raw: str,
         allowed_labels: set[str],
         fence_token: str,
-        other_company_names: list[str],
+        other_companies: Sequence[CompanyName],
     ) -> ValidatedAnswer:
         try:
             draft = AnswerDraft.model_validate(json.loads(raw))
@@ -60,9 +61,8 @@ class AnswerValidator:
 
         if fence_token in answer or "<<" in answer:
             raise AnswerRejected("answer repeats the excerpt markers")
-        for name in other_company_names:
-            if re.search(rf"\b{re.escape(name)}\b", answer, re.IGNORECASE):
-                raise AnswerRejected("answer mentions another company")
+        if names_any(answer, other_companies):
+            raise AnswerRejected("answer mentions another company")
         if self._scanner.scan(answer):
             raise AnswerRejected("answer contains instruction-like text")
 

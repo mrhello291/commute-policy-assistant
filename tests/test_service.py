@@ -17,6 +17,8 @@ from app.llm.fake import ScriptedLLM
 from app.retrieval.retriever import DenseRetriever
 
 YAMUNA = Principal("emp-1", "yamuna", Role.EMPLOYEE)
+MEDHAVI = Principal("emp-2", "medhavi", Role.EMPLOYEE)
+GOMTI = Principal("emp-3", "gomti", Role.EMPLOYEE)
 
 
 def reply(verdict="answered", answer="A security escort travels on drops after 7:30 PM.", citations=("S1",)):
@@ -243,3 +245,17 @@ def test_every_reply_that_cannot_answer_points_to_the_transport_desk(message):
     one of those messages does what the brief asks.
     """
     assert "transport desk" in getattr(messages, message)
+
+
+@pytest.mark.parametrize(
+    "principal,question",
+    [
+        (MEDHAVI, "I live in Gomti Nagar, am I eligible for pickup?"),
+        (GOMTI, "My drop is past the Yamuna Expressway toll, do I get an escort?"),
+    ],
+)
+def test_an_address_that_shares_a_client_name_is_answered(container, principal, question):
+    llm = ScriptedLLM([reply()])
+    result = ask(make_service(container, llm), question, principal=principal)
+    assert result.status is AnswerStatus.ANSWERED
+    assert len(llm.calls) == 1

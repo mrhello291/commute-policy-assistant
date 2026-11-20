@@ -2,11 +2,12 @@ import json
 
 import pytest
 
+from app.answering.companies import CompanyName
 from app.answering.validator import AnswerRejected, AnswerValidator
 
 LABELS = {"S1", "S2", "S3"}
 TOKEN = "a1b2c3d4e5f6"
-OTHERS = ["Gomti Logistics", "gomti", "Medhavi Health", "medhavi"]
+OTHERS = [CompanyName("gomti", "Gomti Logistics"), CompanyName("medhavi", "Medhavi Health")]
 
 
 def check(verdict="answered", answer="Escort after 7:30 PM.", citations=("S1",), raw=None):
@@ -53,3 +54,8 @@ def test_bad_replies_are_rejected(kwargs, reason):
 def test_company_name_inside_a_word_is_fine():
     # "medhavi" only matches as a whole word.
     assert check(answer="Use the medhavisque shuttle.").verdict == "answered"
+
+
+def test_a_place_named_like_another_client_is_not_a_mention():
+    answer = "Pickups from Gomti Nagar are inside the 25 km limit, so a cab is provided."
+    assert check(answer=answer).verdict == "answered"
