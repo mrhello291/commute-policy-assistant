@@ -105,3 +105,34 @@ def test_rescore_gives_the_same_scores_for_the_same_answers(tmp_path):
     assert rescored[0]["notes"].startswith("rate limited, retried after 30s")
     assert again["config"] == first["config"]
     assert again["requirements"]["newest_version_only"] == {"held": 3, "cases": 3}
+
+
+def test_a_submitted_run_the_quota_stops_writes_nothing(tmp_path, monkeypatch):
+    """Rate-limited cases would be scored as "try again"; the submission must not contain them."""
+    import evaluation.run as runner
+
+    real_ask = runner.ask_with_backoff
+
+    def rate_limited(container, case):
+        result, notes = real_ask(container, case)
+        result.diagnostics.failure = "LLMRateLimited"
+        return result, notes
+
+    out = tmp_path / "eval_set.jsonl"
+    monkeypatch.setattr(runner, "ask_with_backoff", rate_limited)
+    monkeypatch.setattr(runner, "output_path", lambda *a: out)
+    args = argparse.Namespace(
+        retriever="dense",
+        llm="none",
+        embedder="hashing",
+        cases=str(CASES_FILE),
+        only="escort-time-yamuna",
+        no_headers=False,
+        name=None,
+        out=None,
+        pace=0,
+        submit=True,
+    )
+    with pytest.raises(runner.QuotaExhausted):
+        run(args)
+    assert not out.exists()

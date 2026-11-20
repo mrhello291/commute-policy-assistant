@@ -190,7 +190,9 @@ def _run_cases(args: argparse.Namespace, cases: list[dict], settings: Settings, 
     rows = []
     for i, case in enumerate(cases, start=1):
         result, harness_notes = ask_with_backoff(container, case)
-        if getattr(args, "stop_on_rate_limit", False) and result.diagnostics.failure == "LLMRateLimited":
+        # A repeat or a submitted run that the quota stops is thrown away, never scored.
+        stop = getattr(args, "stop_on_rate_limit", False) or getattr(args, "submit", False)
+        if stop and result.diagnostics.failure == "LLMRateLimited":
             raise QuotaExhausted(f"still rate limited at case {case['id']} ({i}/{len(cases)})")
         actual = to_actual(result)
         citations = checker.check(case, actual)
@@ -374,7 +376,11 @@ def main() -> None:
         if repeat(args) is None:
             sys.exit(1)
     else:
-        run(args)
+        try:
+            run(args)
+        except QuotaExhausted as exc:
+            print(f"\nstopped: {exc}. Nothing was written; run the same command again later.", file=sys.stderr)
+            sys.exit(1)
 
 
 if __name__ == "__main__":
