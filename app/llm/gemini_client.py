@@ -1,6 +1,11 @@
 """Google Gemini (AI Studio free tier) as an alternative provider.
 
 Useful when the Groq quota runs out. Same interface, same no-retry rule.
+
+The SDK turns a request timeout into an `X-Server-Timeout` header, and the API
+rejects any deadline under 10 s with a 400. So the header is pinned to that
+minimum while the client still stops waiting after `timeout`; the answering
+service enforces its own wall-clock deadline on top.
 """
 
 import httpx
@@ -14,6 +19,8 @@ from app.llm.base import (
     LLMTimeout,
     LLMUnavailable,
 )
+
+SERVER_DEADLINE_S = 10  # the smallest deadline the Gemini API accepts
 
 
 class GeminiLLMClient:
@@ -34,7 +41,10 @@ class GeminiLLMClient:
             temperature=0,
             max_output_tokens=self._max_output_tokens,
             thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),
-            http_options=types.HttpOptions(timeout=int(timeout * 1000)),
+            http_options=types.HttpOptions(
+                timeout=int(timeout * 1000),
+                headers={"X-Server-Timeout": str(SERVER_DEADLINE_S)},
+            ),
         )
         try:
             response = self._client.models.generate_content(model=self._model, contents=user, config=config)

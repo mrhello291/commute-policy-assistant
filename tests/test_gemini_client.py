@@ -53,3 +53,18 @@ def test_errors_map_to_llm_errors(exc, error):
 def test_empty_reply_is_bad_response():
     with pytest.raises(LLMBadResponse):
         call(client_returning(FakeResponse("")))
+
+
+def test_the_server_deadline_is_never_below_the_apis_minimum():
+    """Gemini answers 400 to a deadline under 10 s; the client-side timeout stays short."""
+    seen = {}
+    client = GeminiLLMClient(api_key="test-key", model="test-model")
+
+    def generate_content(**kwargs):
+        seen["http"] = kwargs["config"].http_options
+        return FakeResponse('{"ok": true}')
+
+    client._client.models.generate_content = generate_content
+    client.complete_json("system", "user", {"type": "object"}, timeout=2.2)
+    assert seen["http"].headers["X-Server-Timeout"] == "10"
+    assert seen["http"].timeout == 2200
