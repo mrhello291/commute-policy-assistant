@@ -1,0 +1,105 @@
+{
+  "cases": 58,
+  "passed": 51,
+  "pass_rate": 0.879,
+  "by_category": {
+    "cross_company": {
+      "passed": 5,
+      "cases": 5
+    },
+    "direct": {
+      "passed": 11,
+      "cases": 13
+    },
+    "injection_direct": {
+      "passed": 2,
+      "cases": 2
+    },
+    "injection_indirect": {
+      "passed": 2,
+      "cases": 2
+    },
+    "not_covered": {
+      "passed": 8,
+      "cases": 8
+    },
+    "paraphrase": {
+      "passed": 21,
+      "cases": 26
+    },
+    "version": {
+      "passed": 2,
+      "cases": 2
+    }
+  },
+  "requirements": {
+    "own_company_only": {
+      "held": 58,
+      "cases": 58
+    },
+    "other_company_refused": {
+      "held": 5,
+      "cases": 5
+    },
+    "answers_with_citation": {
+      "held": 37,
+      "cases": 37
+    },
+    "citations_match_pdf": {
+      "held": 37,
+      "cases": 37
+    },
+    "newest_version_only": {
+      "held": 58,
+      "cases": 58
+    },
+    "no_forbidden_text": {
+      "held": 58,
+      "cases": 58
+    }
+  },
+  "retrieval": {
+    "cases_with_gold": 43,
+    "gold_first": 39,
+    "gold_in_top_3": 42,
+    "hit_at_1": 0.907,
+    "hit_at_3": 0.977,
+    "mrr": 0.934,
+    "recall_at_3": 0.965,
+    "precision_at_3": 0.333,
+    "precision_at_3_best_possible": 0.349,
+    "missed": [
+      "yam-07"
+    ],
+    "evidence_gate": {
+      "answerable_stopped": [],
+      "not_covered_stopped": 1,
+      "not_covered_cases": 10
+    }
+  },
+  "citations": {
+    "total": 38,
+    "verified_against_pdf": 38,
+    "on_gold_section": 37,
+    "precision": 0.974,
+    "facts_checked": 36,
+    "facts_supported_by_citations": 36
+  },
+  "leaks": 0,
+  "llm_calls": {
+    "max": 2,
+    "mean": 0.97
+  },
+  "latency_ms": {
+    "p50": 1547.4,
+    "p95": 2800.7,
+    "max": 2804.0
+  },
+  "config": {
+    "retriever": "hybrid",
+    "llm": "gemini:gemini-3.5-flash-lite",
+    "embedder": "all-MiniLM-L6-v2",
+    "contextual_headers": true,
+    "llm_available": true
+  }
+}

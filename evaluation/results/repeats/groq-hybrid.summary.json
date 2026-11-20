@@ -1,0 +1,295 @@
+{
+  "runs": 5,
+  "cases": 58,
+  "config": {
+    "retriever": "hybrid",
+    "llm": "groq:openai/gpt-oss-20b",
+    "embedder": "all-MiniLM-L6-v2",
+    "contextual_headers": true,
+    "llm_available": true
+  },
+  "passed": {
+    "mean": 55.6,
+    "std": 0.55,
+    "min": 55,
+    "max": 56,
+    "per_run": [
+      56,
+      55,
+      55,
+      56,
+      56
+    ]
+  },
+  "by_category": {
+    "cross_company": {
+      "cases": 5,
+      "mean": 5,
+      "std": 0.0,
+      "min": 5,
+      "max": 5,
+      "per_run": [
+        5,
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "direct": {
+      "cases": 13,
+      "mean": 13,
+      "std": 0.0,
+      "min": 13,
+      "max": 13,
+      "per_run": [
+        13,
+        13,
+        13,
+        13,
+        13
+      ]
+    },
+    "injection_direct": {
+      "cases": 2,
+      "mean": 2,
+      "std": 0.0,
+      "min": 2,
+      "max": 2,
+      "per_run": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "injection_indirect": {
+      "cases": 2,
+      "mean": 2,
+      "std": 0.0,
+      "min": 2,
+      "max": 2,
+      "per_run": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "not_covered": {
+      "cases": 8,
+      "mean": 8,
+      "std": 0.0,
+      "min": 8,
+      "max": 8,
+      "per_run": [
+        8,
+        8,
+        8,
+        8,
+        8
+      ]
+    },
+    "paraphrase": {
+      "cases": 26,
+      "mean": 23.6,
+      "std": 0.55,
+      "min": 23,
+      "max": 24,
+      "per_run": [
+        24,
+        23,
+        23,
+        24,
+        24
+      ]
+    },
+    "version": {
+      "cases": 2,
+      "mean": 2,
+      "std": 0.0,
+      "min": 2,
+      "max": 2,
+      "per_run": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    }
+  },
+  "per_case_passed": {
+    "yam-01": 5,
+    "yam-02": 5,
+    "yam-03": 5,
+    "yam-04": 5,
+    "yam-05": 5,
+    "yam-06": 5,
+    "yam-07": 0,
+    "yam-08": 5,
+    "yam-09": 5,
+    "yam-10": 5,
+    "yam-11": 5,
+    "yam-12": 5,
+    "yam-13": 5,
+    "yam-14": 5,
+    "yam-15": 5,
+    "yam-16": 5,
+    "yam-17": 5,
+    "yam-18": 5,
+    "yam-19": 5,
+    "gom-01": 5,
+    "gom-02": 5,
+    "gom-03": 5,
+    "gom-04": 5,
+    "gom-05": 5,
+    "gom-06": 5,
+    "gom-07": 5,
+    "gom-08": 5,
+    "med-01": 5,
+    "med-02": 5,
+    "med-03": 5,
+    "med-04": 5,
+    "med-05": 5,
+    "med-06": 3,
+    "med-07": 5,
+    "med-08": 5,
+    "med-09": 5,
+    "yam-20": 5,
+    "yam-21": 5,
+    "yam-22": 5,
+    "gom-09": 0,
+    "gom-10": 5,
+    "med-10": 5,
+    "med-11": 5,
+    "yam-23": 5,
+    "yam-24": 5,
+    "yam-25": 5,
+    "yam-26": 5,
+    "yam-27": 5,
+    "yam-28": 5,
+    "yam-29": 5,
+    "gom-11": 5,
+    "gom-12": 5,
+    "gom-13": 5,
+    "gom-14": 5,
+    "med-12": 5,
+    "med-13": 5,
+    "med-14": 5,
+    "med-15": 5
+  },
+  "flaky": [
+    "med-06 3/5"
+  ],
+  "failed_every_run": [
+    "yam-07",
+    "gom-09"
+  ],
+  "try_again": {
+    "mean": 0,
+    "std": 0.0,
+    "min": 0,
+    "max": 0,
+    "per_run": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "wrong_answers": {
+    "mean": 2.4,
+    "std": 0.55,
+    "min": 2,
+    "max": 3,
+    "per_run": [
+      2,
+      3,
+      3,
+      2,
+      2
+    ]
+  },
+  "wrong_answers_by_case": {
+    "yam-07": 5,
+    "gom-09": 5,
+    "med-06": 2
+  },
+  "requirements": {
+    "own_company_only": {
+      "held": 290,
+      "cases": 290,
+      "held_in_every_run": true
+    },
+    "other_company_refused": {
+      "held": 25,
+      "cases": 25,
+      "held_in_every_run": true
+    },
+    "answers_with_citation": {
+      "held": 203,
+      "cases": 203,
+      "held_in_every_run": true
+    },
+    "citations_match_pdf": {
+      "held": 203,
+      "cases": 203,
+      "held_in_every_run": true
+    },
+    "newest_version_only": {
+      "held": 290,
+      "cases": 290,
+      "held_in_every_run": true
+    },
+    "no_forbidden_text": {
+      "held": 290,
+      "cases": 290,
+      "held_in_every_run": true
+    }
+  },
+  "citations": {
+    "total": 213,
+    "verified_against_pdf": 213,
+    "on_gold_section": 203,
+    "facts_checked": 203,
+    "facts_supported_by_citations": 203
+  },
+  "leaks": 0,
+  "retrieval": {
+    "cases_with_gold": 43,
+    "gold_first": 39,
+    "gold_in_top_3": 42,
+    "hit_at_1": 0.907,
+    "hit_at_3": 0.977,
+    "mrr": 0.934,
+    "recall_at_3": 0.965,
+    "precision_at_3": 0.333,
+    "precision_at_3_best_possible": 0.349,
+    "missed": [
+      "yam-07"
+    ],
+    "evidence_gate": {
+      "answerable_stopped": [],
+      "not_covered_stopped": 1,
+      "not_covered_cases": 10
+    },
+    "same_in_every_run": true
+  },
+  "llm_calls_mean": 0.9,
+  "latency_ms": {
+    "p50": {
+      "median": 710.4,
+      "min": 703.4,
+      "max": 747.7
+    },
+    "p95": {
+      "median": 867.7,
+      "min": 849.9,
+      "max": 985.8
+    }
+  }
+}

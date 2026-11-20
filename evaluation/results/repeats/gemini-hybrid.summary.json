@@ -1,0 +1,342 @@
+{
+  "runs": 5,
+  "cases": 58,
+  "config": {
+    "retriever": "hybrid",
+    "llm": "gemini:gemini-3.5-flash-lite",
+    "embedder": "all-MiniLM-L6-v2",
+    "contextual_headers": true,
+    "llm_available": true
+  },
+  "passed": {
+    "mean": 38,
+    "std": 18.33,
+    "min": 8,
+    "max": 51,
+    "per_run": [
+      51,
+      47,
+      51,
+      8,
+      33
+    ]
+  },
+  "by_category": {
+    "cross_company": {
+      "cases": 5,
+      "mean": 5,
+      "std": 0.0,
+      "min": 5,
+      "max": 5,
+      "per_run": [
+        5,
+        5,
+        5,
+        5,
+        5
+      ]
+    },
+    "direct": {
+      "cases": 13,
+      "mean": 7.8,
+      "std": 4.09,
+      "min": 1,
+      "max": 11,
+      "per_run": [
+        10,
+        10,
+        11,
+        1,
+        7
+      ]
+    },
+    "injection_direct": {
+      "cases": 2,
+      "mean": 1.8,
+      "std": 0.45,
+      "min": 1,
+      "max": 2,
+      "per_run": [
+        2,
+        2,
+        2,
+        1,
+        2
+      ]
+    },
+    "injection_indirect": {
+      "cases": 2,
+      "mean": 1,
+      "std": 1.0,
+      "min": 0,
+      "max": 2,
+      "per_run": [
+        2,
+        1,
+        2,
+        0,
+        0
+      ]
+    },
+    "not_covered": {
+      "cases": 8,
+      "mean": 5.2,
+      "std": 3.27,
+      "min": 0,
+      "max": 8,
+      "per_run": [
+        8,
+        5,
+        8,
+        0,
+        5
+      ]
+    },
+    "paraphrase": {
+      "cases": 26,
+      "mean": 16,
+      "std": 9.03,
+      "min": 1,
+      "max": 22,
+      "per_run": [
+        22,
+        22,
+        21,
+        1,
+        14
+      ]
+    },
+    "version": {
+      "cases": 2,
+      "mean": 1.2,
+      "std": 1.1,
+      "min": 0,
+      "max": 2,
+      "per_run": [
+        2,
+        2,
+        2,
+        0,
+        0
+      ]
+    }
+  },
+  "per_case_passed": {
+    "yam-01": 3,
+    "yam-02": 3,
+    "yam-03": 2,
+    "yam-04": 3,
+    "yam-05": 2,
+    "yam-06": 4,
+    "yam-07": 0,
+    "yam-08": 4,
+    "yam-09": 4,
+    "yam-10": 4,
+    "yam-11": 4,
+    "yam-12": 1,
+    "yam-13": 3,
+    "yam-14": 3,
+    "yam-15": 4,
+    "yam-16": 5,
+    "yam-17": 5,
+    "yam-18": 5,
+    "yam-19": 4,
+    "gom-01": 3,
+    "gom-02": 3,
+    "gom-03": 2,
+    "gom-04": 3,
+    "gom-05": 3,
+    "gom-06": 3,
+    "gom-07": 4,
+    "gom-08": 5,
+    "med-01": 2,
+    "med-02": 3,
+    "med-03": 3,
+    "med-04": 2,
+    "med-05": 3,
+    "med-06": 3,
+    "med-07": 3,
+    "med-08": 3,
+    "med-09": 5,
+    "yam-20": 1,
+    "yam-21": 3,
+    "yam-22": 3,
+    "gom-09": 3,
+    "gom-10": 4,
+    "med-10": 3,
+    "med-11": 4,
+    "yam-23": 4,
+    "yam-24": 5,
+    "yam-25": 4,
+    "yam-26": 4,
+    "yam-27": 2,
+    "yam-28": 5,
+    "yam-29": 5,
+    "gom-11": 3,
+    "gom-12": 3,
+    "gom-13": 3,
+    "gom-14": 3,
+    "med-12": 3,
+    "med-13": 3,
+    "med-14": 3,
+    "med-15": 3
+  },
+  "flaky": [
+    "yam-01 3/5",
+    "yam-02 3/5",
+    "yam-03 2/5",
+    "yam-04 3/5",
+    "yam-05 2/5",
+    "yam-06 4/5",
+    "yam-08 4/5",
+    "yam-09 4/5",
+    "yam-10 4/5",
+    "yam-11 4/5",
+    "yam-12 1/5",
+    "yam-13 3/5",
+    "yam-14 3/5",
+    "yam-15 4/5",
+    "yam-19 4/5",
+    "gom-01 3/5",
+    "gom-02 3/5",
+    "gom-03 2/5",
+    "gom-04 3/5",
+    "gom-05 3/5",
+    "gom-06 3/5",
+    "gom-07 4/5",
+    "med-01 2/5",
+    "med-02 3/5",
+    "med-03 3/5",
+    "med-04 2/5",
+    "med-05 3/5",
+    "med-06 3/5",
+    "med-07 3/5",
+    "med-08 3/5",
+    "yam-20 1/5",
+    "yam-21 3/5",
+    "yam-22 3/5",
+    "gom-09 3/5",
+    "gom-10 4/5",
+    "med-10 3/5",
+    "med-11 4/5",
+    "yam-23 4/5",
+    "yam-25 4/5",
+    "yam-26 4/5",
+    "yam-27 2/5",
+    "gom-11 3/5",
+    "gom-12 3/5",
+    "gom-13 3/5",
+    "gom-14 3/5",
+    "med-12 3/5",
+    "med-13 3/5",
+    "med-14 3/5",
+    "med-15 3/5"
+  ],
+  "failed_every_run": [
+    "yam-07"
+  ],
+  "try_again": {
+    "mean": 18.2,
+    "std": 19.16,
+    "min": 4,
+    "max": 50,
+    "per_run": [
+      5,
+      10,
+      4,
+      50,
+      22
+    ]
+  },
+  "wrong_answers": {
+    "mean": 1.8,
+    "std": 1.3,
+    "min": 0,
+    "max": 3,
+    "per_run": [
+      2,
+      1,
+      3,
+      0,
+      3
+    ]
+  },
+  "wrong_answers_by_case": {
+    "yam-07": 4,
+    "yam-12": 3,
+    "yam-27": 2
+  },
+  "requirements": {
+    "own_company_only": {
+      "held": 290,
+      "cases": 290,
+      "held_in_every_run": true
+    },
+    "other_company_refused": {
+      "held": 25,
+      "cases": 25,
+      "held_in_every_run": true
+    },
+    "answers_with_citation": {
+      "held": 132,
+      "cases": 132,
+      "held_in_every_run": true
+    },
+    "citations_match_pdf": {
+      "held": 132,
+      "cases": 132,
+      "held_in_every_run": true
+    },
+    "newest_version_only": {
+      "held": 290,
+      "cases": 290,
+      "held_in_every_run": true
+    },
+    "no_forbidden_text": {
+      "held": 290,
+      "cases": 290,
+      "held_in_every_run": true
+    }
+  },
+  "citations": {
+    "total": 138,
+    "verified_against_pdf": 138,
+    "on_gold_section": 132,
+    "facts_checked": 130,
+    "facts_supported_by_citations": 130
+  },
+  "leaks": 0,
+  "retrieval": {
+    "cases_with_gold": 43,
+    "gold_first": 39,
+    "gold_in_top_3": 42,
+    "hit_at_1": 0.907,
+    "hit_at_3": 0.977,
+    "mrr": 0.934,
+    "recall_at_3": 0.965,
+    "precision_at_3": 0.333,
+    "precision_at_3_best_possible": 0.349,
+    "missed": [
+      "yam-07"
+    ],
+    "evidence_gate": {
+      "answerable_stopped": [],
+      "not_covered_stopped": 1,
+      "not_covered_cases": 10
+    },
+    "same_in_every_run": true
+  },
+  "llm_calls_mean": 1.22,
+  "latency_ms": {
+    "p50": {
+      "median": 1547.4,
+      "min": 1464.2,
+      "max": 2800.8
+    },
+    "p95": {
+      "median": 2800.9,
+      "min": 2800.7,
+      "max": 2801.1
+    }
+  }
+}

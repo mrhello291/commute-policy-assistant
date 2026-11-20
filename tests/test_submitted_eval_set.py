@@ -7,7 +7,7 @@ an experiment written to the wrong place can't go unnoticed.
 
 import json
 
-from evaluation.run import CASES_FILE, EVAL_SET_FILE
+from evaluation.run import CASES_FILE, EVAL_SET_FILE, REPEATS_DIR
 
 REQUIRED_FIELDS = ["id", "input", "expected", "actual", "pass", "notes"]
 
@@ -42,3 +42,16 @@ def test_the_properties_that_must_always_hold_held_in_every_case():
     for name, counts in requirements.items():
         assert counts["cases"] > 0, name
         assert counts["held"] == counts["cases"], name
+
+
+def test_the_properties_held_in_every_repeated_run():
+    """Every committed repeat summary: nothing leaked, and every must-hold property held in every run."""
+    summaries = sorted(REPEATS_DIR.glob("*.summary.json"))
+    assert summaries
+    for path in summaries:
+        agg = json.loads(path.read_text())
+        assert agg["runs"] == 5, path.name
+        assert agg["leaks"] == 0, path.name
+        assert agg["retrieval"]["same_in_every_run"], path.name
+        for name, counts in agg["requirements"].items():
+            assert counts["held_in_every_run"] and counts["held"] == counts["cases"] > 0, (path.name, name)

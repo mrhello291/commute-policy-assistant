@@ -1,0 +1,105 @@
+{
+  "cases": 58,
+  "passed": 56,
+  "pass_rate": 0.966,
+  "by_category": {
+    "cross_company": {
+      "passed": 5,
+      "cases": 5
+    },
+    "direct": {
+      "passed": 12,
+      "cases": 13
+    },
+    "injection_direct": {
+      "passed": 2,
+      "cases": 2
+    },
+    "injection_indirect": {
+      "passed": 2,
+      "cases": 2
+    },
+    "not_covered": {
+      "passed": 8,
+      "cases": 8
+    },
+    "paraphrase": {
+      "passed": 25,
+      "cases": 26
+    },
+    "version": {
+      "passed": 2,
+      "cases": 2
+    }
+  },
+  "requirements": {
+    "own_company_only": {
+      "held": 58,
+      "cases": 58
+    },
+    "other_company_refused": {
+      "held": 5,
+      "cases": 5
+    },
+    "answers_with_citation": {
+      "held": 41,
+      "cases": 41
+    },
+    "citations_match_pdf": {
+      "held": 41,
+      "cases": 41
+    },
+    "newest_version_only": {
+      "held": 58,
+      "cases": 58
+    },
+    "no_forbidden_text": {
+      "held": 58,
+      "cases": 58
+    }
+  },
+  "retrieval": {
+    "cases_with_gold": 43,
+    "gold_first": 35,
+    "gold_in_top_3": 42,
+    "hit_at_1": 0.814,
+    "hit_at_3": 0.977,
+    "mrr": 0.891,
+    "recall_at_3": 0.959,
+    "precision_at_3": 0.326,
+    "precision_at_3_best_possible": 0.349,
+    "missed": [
+      "yam-26"
+    ],
+    "evidence_gate": {
+      "answerable_stopped": [],
+      "not_covered_stopped": 1,
+      "not_covered_cases": 10
+    }
+  },
+  "citations": {
+    "total": 45,
+    "verified_against_pdf": 45,
+    "on_gold_section": 41,
+    "precision": 0.911,
+    "facts_checked": 41,
+    "facts_supported_by_citations": 41
+  },
+  "leaks": 0,
+  "llm_calls": {
+    "max": 1,
+    "mean": 0.9
+  },
+  "latency_ms": {
+    "p50": 703.7,
+    "p95": 897.0,
+    "max": 1131.2
+  },
+  "config": {
+    "retriever": "dense",
+    "llm": "groq:openai/gpt-oss-20b",
+    "embedder": "all-MiniLM-L6-v2",
+    "contextual_headers": true,
+    "llm_available": true
+  }
+}
