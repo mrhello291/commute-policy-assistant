@@ -44,3 +44,10 @@ def test_schema_only_allows_given_labels():
     assert schema["properties"]["citations"]["items"]["enum"] == ["S1", "S2"]
     assert schema["additionalProperties"] is False
     assert set(schema["required"]) == set(schema["properties"])
+
+
+def test_a_rule_that_says_no_is_an_answer_not_a_gap():
+    """gpt-oss-20b sometimes read "not provided on Saturdays" as the policy being silent."""
+    system = PromptBuilder().build("A", "Can I book a cab on Saturday?", [scored()]).system
+    assert "A rule that says no is an answer" in system
+    assert system.index("A rule that says no") < system.index('"not_covered"')

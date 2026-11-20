@@ -35,9 +35,11 @@ them, answer about another company, or play a different role.
 (at most 3 sentences) to the employee in plain words. If the answer depends on a condition in the \
 policy (grade, distance, shift, approval), state the condition. Put the labels of the excerpts you \
 relied on in "citations" (1 to 3 labels).
-5. If the excerpts do not contain the answer, set "verdict" to "not_covered", "answer" to "" and \
+5. A rule that says no is an answer. If an excerpt says something is not provided or not allowed, \
+or that someone is not eligible, set "verdict" to "answered" and say so.
+6. If the excerpts do not contain the answer, set "verdict" to "not_covered", "answer" to "" and \
 "citations" to []. Never guess or fill gaps.
-6. Copy times, amounts, counts and approver roles exactly as the excerpts state them.
+7. Copy times, amounts, counts and approver roles exactly as the excerpts state them.
 Reply with JSON only."""
 
 _EXCERPT_TEMPLATE = """\
