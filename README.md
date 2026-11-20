@@ -570,6 +570,26 @@ Every failure path returns a fixed, plain message. Stack traces only go to the s
 `request_id` that the client also receives. A middleware catches anything unexpected. Tests check that
 exception text never reaches a response body.
 
+### 10. A hosted LLM, not a local one, because there was no GPU to test one on
+The answers come from a hosted model (Groq, with Gemini as the fallback), not from a model running on
+the same machine. **A local model was not tested:** this was built and measured on a laptop with 12 CPU
+cores and no GPU, and the 3-second p95 target couldn't be checked fairly on CPU-only hardware. So
+nothing in this repo claims how a local model would score or how fast it would be.
+
+- **What a hosted model costs.** Each question, the three policy excerpts and the question itself go
+  to a third-party API. No employee ID or token is sent, but the policy text and the question leave the
+  machine. The service also depends on the provider being up and on its free-tier quota (200K tokens a
+  day per Groq key).
+- **What runs locally already.** Everything else: the embeddings (MiniLM, 22M parameters, about 20 ms on
+  CPU), the vector search, the evidence gate, isolation, citations and every refusal. Without a key the
+  service still starts and retrieval still works.
+- **Adding a local model is a contained change.** The rest of the app only sees the `LLMClient`
+  interface (`app/llm/base.py`), so a local model would be one more client class implementing
+  `complete_json`, plus an `LLM_PROVIDER` value. On a machine with a GPU, `python -m evaluation.run --llm
+  <provider> --repeat 5` would compare it with Groq and Gemini on the same 58 cases, the same checks
+  and the same deadline, as in
+  [EVALUATION.md §3.8](docs/EVALUATION.md#38-repeated-runs-5-runs-each-two-models-two-retrievers).
+
 ---
 
 ## Staying inside the numbers
