@@ -124,6 +124,24 @@ Sign-in errors have the same `{status, message, request_id}` shape:
 | 401 | `unauthorized` | Missing, forged, expired, logged-out or superseded token, or the employee has since left or changed role |
 | 503 | `auth_unavailable` | The token store can't be read. Requests fail closed, with `Retry-After` |
 
+### Uploading a policy
+
+Sign in as the company's policy admin, then send the PDF. After `@`, give the path to the file on
+your own machine; curl reads it and uploads it.
+
+```bash
+ADMIN=$(curl -s -XPOST localhost:8000/v1/auth/login -H 'content-type: application/json' \
+  -d '{"company_id":"yamuna","employee_id":"YAM-1004"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')
+
+curl -s -XPOST localhost:8000/v1/policies -H "authorization: Bearer $ADMIN" -F file=@/path/to/yamuna-v3.pdf
+# {"company_id":"yamuna","version":3,"activated":true,"previous_version":2,...}
+```
+
+The admins are `YAM-1004` (yamuna), `GOM-2004` (gomti) and `MED-3003` (medhavi). The new version
+answers questions as soon as the call returns, with no restart. If the file is refused, the reply's
+`message` says why and the live version is unchanged (see the table below). The `/docs` page offers
+the same upload with a file picker: click **Authorize**, then *Try it out* on `POST /v1/policies`.
+
 ### Trying ingestion: a new version, or a new client company
 
 `POST /v1/policies` loads both a new version of an existing policy and a new company's first policy.
@@ -133,13 +151,8 @@ document's document-control block, and the directory is where that admin comes f
 **A new version for an existing company.** Make a v3 PDF: copy
 `data/archive/markdown-policies/yamuna/v2.md`, change `version: 2` to `version: 3` and a rule or two,
 and run `python scripts/make_policy_pdfs.py yamuna-v3.md yamuna-v3.pdf`. (Any PDF laid out the same way
-works: a document-control block on page 1, bold numbered headings.) Sign in as `YAM-1004` and upload it,
-either in the API docs (**Authorize**, then *Try it out* on `POST /v1/policies`, which has a file
-picker) or with curl:
-
-```bash
-curl -s -XPOST localhost:8000/v1/policies -H "authorization: Bearer $ADMIN" -F file=@yamuna-v3.pdf
-```
+works: a document-control block on page 1, bold numbered headings.) Upload it with the two commands in
+[Uploading a policy](#uploading-a-policy).
 
 Questions now cite v3 only. An older version number gets a 409 and changes nothing.
 
