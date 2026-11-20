@@ -5,6 +5,8 @@
     python -m evaluation.run --llm none            # retrieval only, no API key needed
     python -m evaluation.run --rescore evaluation/results/eval_set.jsonl
                                                    # re-score saved answers, no LLM calls
+    python -m evaluation.run --llm gemini --retriever hybrid --repeat 5
+                                                   # five runs, combined into mean ± std
 
 Each run builds a fresh, private instance of the service in a temporary
 directory and loads the bundled policies in version order (so Yamuna goes
@@ -21,6 +23,13 @@ go to their own file so they can't overwrite it.
 `--rescore` re-applies the current scoring to the answers already saved in a
 results file. Answers vary from run to run; this shows the same answers
 scored with today's checks, and costs nothing.
+
+`--repeat N` runs the set N times into `results/repeats/<name>/run-<i>.jsonl`
+and combines them into `results/repeats/<name>.summary.json` (see
+`evaluation/repeats.py`). Runs already on disk are kept, so the same command
+picks up where a spent daily quota stopped it. A run in which the provider
+was still rate limiting after the harness's retries is thrown away rather
+than scored, because those failures say nothing about the answers.
 """
 
 import argparse
@@ -38,15 +47,21 @@ from app.container import Container
 from app.policies.pdf_parser import PolicyParser
 from app.policies.seed import policy_files
 from evaluation.citation_check import PdfCitationChecker
+from evaluation.repeats import aggregate, load_run, print_aggregate
 from evaluation.scoring import score_case, summarise
 
 ROOT = Path(__file__).resolve().parent.parent
 CASES_FILE = ROOT / "evaluation" / "cases.jsonl"
 RESULTS_DIR = ROOT / "evaluation" / "results"
 EVAL_SET_FILE = RESULTS_DIR / "eval_set.jsonl"
+REPEATS_DIR = RESULTS_DIR / "repeats"
 POLICY_DIR = ROOT / "data" / "policies"
 RATE_LIMIT_WAIT_S = 30
 RATE_LIMIT_ATTEMPTS = 3
+
+
+class QuotaExhausted(RuntimeError):
+    """The provider kept rate limiting after every harness retry."""
 
 
 def load_cases(path: Path, only: set[str] | None) -> list[dict]:
@@ -157,6 +172,8 @@ def run(args: argparse.Namespace) -> dict:
         rows = []
         for i, case in enumerate(cases, start=1):
             result, harness_notes = ask_with_backoff(container, case)
+            if getattr(args, "stop_on_rate_limit", False) and result.diagnostics.failure == "LLMRateLimited":
+                raise QuotaExhausted(f"still rate limited at case {case['id']} ({i}/{len(cases)})")
             actual = to_actual(result)
             citations = checker.check(case, actual)
             score = score_case(case, actual, llm_available, citations, live_versions)
@@ -186,6 +203,28 @@ def run(args: argparse.Namespace) -> dict:
             "llm_available": llm_available,
         }
     return write_results(rows, output_path(args, settings.retriever, llm_available), config)
+
+
+def repeat(args: argparse.Namespace, repeats_dir: Path = REPEATS_DIR) -> dict | None:
+    """Run the set until `args.repeat` runs exist, then combine them."""
+    name = args.name or f"{args.llm or 'auto'}-{args.retriever or Settings().retriever}"
+    run_dir = repeats_dir / name
+    paths = [run_dir / f"run-{i}.jsonl" for i in range(1, args.repeat + 1)]
+    for i, path in enumerate(paths, start=1):
+        if path.exists() and path.with_suffix(".summary.json").exists():
+            print(f"run {i}/{args.repeat}: already done, kept ({path.name})", file=sys.stderr)
+            continue
+        print(f"run {i}/{args.repeat} -> {path}", file=sys.stderr)
+        try:
+            run(argparse.Namespace(**{**vars(args), "out": str(path), "stop_on_rate_limit": True}))
+        except QuotaExhausted as exc:
+            print(f"\nstopped: {exc}. Run the same command again later to continue.", file=sys.stderr)
+            return None
+    agg = aggregate([load_run(path) for path in paths])
+    out = repeats_dir / f"{name}.summary.json"
+    out.write_text(json.dumps(agg, indent=2) + "\n")
+    print_aggregate(agg, out)
+    return agg
 
 
 def write_results(rows: list[dict], out: Path, config: dict) -> dict:
@@ -294,6 +333,7 @@ def main() -> None:
     parser.add_argument("--only", help="comma-separated case ids")
     parser.add_argument("--name", help="results file name (default: the retriever name)")
     parser.add_argument("--out", help="explicit output path")
+    parser.add_argument("--repeat", type=int, metavar="N", help="run N times and combine (resumes if stopped)")
     parser.add_argument(
         "--pace",
         type=float,
@@ -304,6 +344,9 @@ def main() -> None:
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
     if args.rescore:
         rescore(Path(args.rescore))
+    elif args.repeat:
+        if repeat(args) is None:
+            sys.exit(1)
     else:
         run(args)
 
