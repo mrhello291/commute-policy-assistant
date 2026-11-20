@@ -50,6 +50,38 @@ model output and the provider's response time vary, and one case is 1.7 points o
 of one case between two single runs is noise. Runs 13–17 measure that variation directly with 5 runs
 per setting.
 
+🟦 shipped setting at the time · 🟧 hybrid retrieval experiment, not shipped · 🟩 line: gold section in the top 3
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 900
+    height: 420
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2a78d6, #d95926, #199e70"
+---
+xychart-beta
+    title "Passed in each full run (%) · line: gold section in the top 3 (%)"
+    x-axis "Run, numbered as in the table below" ["1", "2 fix", "3 hybrid", "5", "6 scorer", "7", "8", "9 scorer", "10", "11", "12 hybrid", "14 ×5", "15 hybrid ×5"]
+    y-axis "%" 80 --> 100
+    bar [88.4, 97.7, 0, 94.8, 100, 96.6, 94.8, 94.8, 98.3, 98.3, 0, 97.2, 0]
+    bar [0, 0, 95.3, 0, 0, 0, 0, 0, 0, 0, 94.8, 0, 95.9]
+    line [90.3, 96.8, 96.8, 100, 100, 97.7, 97.7, 97.7, 97.7, 97.7, 97.7, 97.7, 97.7]
+```
+
+How to read it: "fix" marks the one system fix that moved the score (section headings in the
+embedded text), and "scorer" marks the two runs after a case definition was corrected, which changed
+the scorer, not the system. "×5" is the mean of 5 runs (§3.8). Runs 1–3 had 43 cases and the rest 58,
+so the bars are percentages; the axis starts at 80% so that one case (1.7 points on 58) is visible.
+Runs 4 and 13 have no full score: run 4 was the deadline fix found by the latency benchmark, and run
+13 a 4-case Gemini check. Run 5 didn't record the top-3 rate; retrieval doesn't depend on the model,
+and run 6 used the same documents and gold sections, so run 6's value is shown for it. The top-3 line
+dips at run 7, when the companies were renamed, and stays flat after it: switching to PDFs, the
+citation check and the repeated runs left retrieval exactly as it was. Gemini runs 16 and 17 are left
+out of this chart because their misses are timeouts, not answers; they are in the next chart.
+
 | # | Date | What changed | Cases | Passed | Gold section in top 3 | What it showed |
 |---|---|---|---|---|---|---|
 | 1 | 11-18 | First baseline: plain section chunks, dense retrieval | 43 | 38 (88%) | 0.903 | Short sections (*"Each trip is capped at INR 600."*) retrieve badly. Medhavi's cost question pulled up the planted-injection paragraph instead of the cost section |
@@ -69,6 +101,34 @@ per setting.
 | 15 | 11-20 | Groq, hybrid, 5 runs | 58 × 5 | 55.6 ± 0.55 (55–56) | 0.977 | No timeouts. `yam-07` 5/5 (retrieval miss), `gom-09` 5/5, `med-06` 2/5. Confirms run 12: dense stays the default |
 | 16 | 11-20 | Gemini 3.5 Flash-Lite, dense, 5 runs | 58 × 5 | 48.8 ± 3.2 (44–51) | 0.977 | 39 timeouts and 7 wrong answers in 5 runs. As accurate as Groq, too slow for the deadline |
 | 17 | 11-20 | Gemini 3.5 Flash-Lite, hybrid, 5 runs | 58 × 5 | 38.0 ± 18.3 (8–51) | 0.977 | Runs 4 and 5 hit a slow period at Google: 50 and 22 timeouts, and a 503. Wrong answers stayed at 0–3 per run. Kept as measured (§3.8) |
+
+Runs 14–17, one bar per run, split into why each case ended the way it did:
+
+🟩 passed · 🟥 wrong answer · 🟨 "try again" (no reply before the deadline)
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 900
+    height: 620
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#fab219, #d03b3b, #0ca30c"
+---
+xychart-beta horizontal
+    title "The 20 repeated runs, of 58 cases: passed, wrong, try again"
+    x-axis ["Groq dense 1", "Groq dense 2", "Groq dense 3", "Groq dense 4", "Groq dense 5", "Groq hybrid 1", "Groq hybrid 2", "Groq hybrid 3", "Groq hybrid 4", "Groq hybrid 5", "Gemini dense 1", "Gemini dense 2", "Gemini dense 3", "Gemini dense 4", "Gemini dense 5", "Gemini hybrid 1", "Gemini hybrid 2", "Gemini hybrid 3", "Gemini hybrid 4", "Gemini hybrid 5"]
+    y-axis "cases" 0 --> 58
+    bar [58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 58]
+    bar [58, 58, 58, 58, 58, 58, 58, 58, 58, 58, 49, 52, 45, 52, 53, 53, 48, 54, 8, 36]
+    bar [56, 57, 57, 56, 56, 56, 55, 55, 56, 56, 47, 51, 44, 51, 51, 51, 47, 51, 8, 33]
+```
+
+The red slivers are about the same size on every row: both models give 1 to 3 wrong answers a run.
+What separates them is the yellow. Groq never missed the deadline; Gemini missed it in every run, and
+in Gemini hybrid run 4 (a slow spell at Google) on 50 of 58 questions. The numbers behind each bar
+are in the "Each run", "Try again" and "Wrong answers" rows of the table in §3.8.
 
 What the fixes were:
 
