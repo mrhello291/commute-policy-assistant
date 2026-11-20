@@ -92,6 +92,11 @@ class QuestionAnsweringService:
         self._retrieval_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="retrieval")
         self._llm_pool = ThreadPoolExecutor(max_workers=16, thread_name_prefix="llm")
 
+    def close(self) -> None:
+        """Stop the worker threads. An LLM call still running is abandoned, as on a timeout."""
+        self._retrieval_pool.shutdown(wait=False, cancel_futures=True)
+        self._llm_pool.shutdown(wait=False, cancel_futures=True)
+
     def ask(self, principal: Principal, question: str) -> AnswerResult:
         started = time.perf_counter()
         diagnostics = Diagnostics(llm=self._llm.name, retriever=self._retriever.name)

@@ -31,6 +31,11 @@ class ChromaPolicyStore:
             path.mkdir(parents=True, exist_ok=True)
             self._client = chromadb.PersistentClient(path=str(path), settings=settings)
 
+    def close(self) -> None:
+        """Release Chroma's open files (its SQLite database and four index
+        files per collection). Safe to call twice."""
+        self._client.close()
+
     def _collection(self, company_id: str):
         return self._client.get_or_create_collection(
             collection_name(company_id),

@@ -99,6 +99,19 @@ class Container:
         self.ingestion.on_activate(bm25.invalidate)
         return HybridRetriever(self.store, self.embedder, bm25)
 
+    def close(self) -> None:
+        """Release what the container holds open: worker threads and Chroma's
+        files. Without this, every container built in a process leaks about
+        20 file descriptors, which a long test run or a reload loop exhausts."""
+        self.answering.close()
+        self.store.close()
+
+    def __enter__(self) -> "Container":
+        return self
+
+    def __exit__(self, *_) -> None:
+        self.close()
+
     def startup(self) -> None:
         """Remove companies that are no longer clients, repair anything a previous
         crash left behind, then load the sample policies of current clients."""

@@ -22,7 +22,10 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         container.startup()
-        yield
+        try:
+            yield
+        finally:
+            container.close()
 
     # The docs pages are served by routes_pages, behind sign-in.
     app = FastAPI(title="Commute Policy Assistant", version="0.1.0", lifespan=lifespan, docs_url=None, redoc_url=None)
