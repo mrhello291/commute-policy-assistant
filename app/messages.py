@@ -22,6 +22,10 @@ UNEXPECTED = "Something went wrong on our side. Please try again in a minute."
 
 POLICY_UNREADABLE = "The policy document could not be read: {reason}. Nothing was changed."
 POLICY_VERSION_CONFLICT = "{reason}. Upload a document with a higher version number. Nothing was changed."
+POLICY_NOT_YET_EFFECTIVE = (
+    "This document takes effect on {date}. Please upload it on or after that date; until then {current} "
+    "stays in use. Nothing was changed."
+)
 POLICY_UPDATE_FAILED = (
     "The policy update did not complete, so the previous version is still the one in use. "
     "Please try the upload again in a few minutes."

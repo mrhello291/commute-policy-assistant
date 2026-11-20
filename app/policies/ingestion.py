@@ -19,14 +19,20 @@ The sequence is the classic blue/green switch:
 
 If anything in steps 2 to 4 fails, the old version stays live and the
 half-written chunks are removed.
+
+A document whose effective date is still to come is refused before step 2.
+Making it live early would give employees rules that don't apply yet, and
+holding it back until its date would need a scheduled state between
+"staged" and "live". So the admin uploads it on or after that date.
 """
 
 import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta, timezone
 
-from app.errors import IngestionFailed, PermissionDenied
+from app.errors import IngestionFailed, PermissionDenied, PolicyNotYetEffective
 from app.policies.chunker import SectionChunker
 from app.policies.models import PolicyDocument
 from app.policies.pdf_parser import PolicyParser
@@ -36,6 +42,14 @@ from app.retrieval.embeddings import Embedder
 from app.retrieval.vector_store import ChromaPolicyStore
 
 log = logging.getLogger(__name__)
+
+# Every client is in India, so "today" for an effective date is today in IST
+# (which has no daylight saving, so a fixed offset is exact).
+IST = timezone(timedelta(hours=5, minutes=30), "IST")
+
+
+def today_in_india() -> date:
+    return datetime.now(IST).date()
 
 
 @dataclass(frozen=True)
@@ -64,6 +78,7 @@ class IngestionService:
         parser: PolicyParser | None = None,
         chunker: SectionChunker | None = None,
         scanner: InjectionScanner | None = None,
+        today: Callable[[], date] = today_in_india,
     ):
         self._registry = registry
         self._store = store
@@ -71,6 +86,7 @@ class IngestionService:
         self._parser = parser or PolicyParser()
         self._chunker = chunker or SectionChunker()
         self._scanner = scanner or InjectionScanner()
+        self._today = today
         self._listeners: list[Callable[[str], None]] = []
         # Uploads are rare, so one lock for all of them is simplest. Without
         # it, two uploads of the same version could each clean up the other's
@@ -102,6 +118,8 @@ class IngestionService:
         live = self._registry.active(doc.company_id)
         if live and live.version == doc.version and live.checksum == doc.checksum:
             return IngestionReport(doc.company_id, doc.version, activated=False, note="already active")
+        if doc.effective_from > self._today():
+            raise PolicyNotYetEffective(doc.effective_from, live.version if live else None)
 
         self._registry.begin(doc)
         try:

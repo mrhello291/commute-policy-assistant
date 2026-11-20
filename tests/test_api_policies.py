@@ -78,7 +78,7 @@ def without_company(version: int) -> bytes:
     from tests.test_pdf_parser import Pdf
 
     pdf = Pdf().title("Employee Transport Policy")
-    for text in ("Document ID: transport-policy", f"Version: {version}", "Effective from: 1 December 2026"):
+    for text in ("Document ID: transport-policy", f"Version: {version}", "Effective from: 1 November 2026"):
         pdf.line(text)
     return pdf.heading("1. Scope").para("Every employee on a rostered shift.").bytes()
 
@@ -91,6 +91,17 @@ def test_a_pdf_that_names_no_company_is_filed_under_the_uploaders(client):
     assert (live["version"], live["company_name"]) == (3, "Yamuna Software Services")
     # The other companies are untouched.
     assert client.get("/v1/policies/active", headers=auth(client, "gomti")).json()["version"] == 1
+
+
+def test_a_future_dated_upload_says_when_to_send_it(client):
+    text = YAMUNA_V2.replace("version: 2", "version: 3")
+    v3 = render_policy_pdf(text.replace("effective_from: 2026-10-01", "effective_from: 2099-01-15"))
+    response = upload(client, v3, auth(client, role="policy_admin"))
+    assert response.status_code == 409
+    body = response.json()
+    assert body["status"] == "not_yet_effective"
+    assert "15 January 2099" in body["message"] and "version 2 stays in use" in body["message"]
+    assert client.get("/v1/policies/active", headers=auth(client)).json()["version"] == 2
 
 
 def test_markdown_is_still_accepted(client):
@@ -151,7 +162,7 @@ company_name: Kaveri Textiles
 doc_id: kaveri-transport-policy
 title: Kaveri Textiles Transport Policy
 version: 1
-effective_from: 2026-12-01
+effective_from: 2026-11-01
 ---
 
 # Kaveri Textiles Transport Policy

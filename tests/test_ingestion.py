@@ -1,10 +1,11 @@
 import sqlite3
 import uuid
+from datetime import date
 from pathlib import Path
 
 import pytest
 
-from app.errors import IngestionFailed, PermissionDenied, PolicyFormatError, VersionConflict
+from app.errors import IngestionFailed, PermissionDenied, PolicyFormatError, PolicyNotYetEffective, VersionConflict
 from app.policies.chunker import SectionChunker
 from app.policies.ingestion import IngestionService
 from app.policies.parser import MarkdownPolicyParser
@@ -163,6 +164,29 @@ def test_older_version_is_refused(paths):
     with pytest.raises(VersionConflict):
         service.ingest(YAMUNA_V1)
     assert registry.active("yamuna").version == 2
+
+
+def dated(text, effective_from):
+    return text.replace("effective_from: 2026-10-01", f"effective_from: {effective_from}", 1)
+
+
+def test_a_policy_that_has_not_taken_effect_yet_is_refused(paths):
+    """HR sends policies out early; December's rules must not answer questions in November."""
+    service, registry, store = make_service(paths)
+    service.ingest(YAMUNA_V1)
+    early = IngestionService(registry, store, HashingEmbedder(), today=lambda: date(2026, 11, 20))
+    with pytest.raises(PolicyNotYetEffective) as refused:
+        early.ingest(dated(YAMUNA_V2, "2026-12-01"))
+    assert refused.value.effective_from == date(2026, 12, 1) and refused.value.live_version == 1
+    assert registry.active("yamuna").version == 1
+    assert registry.get("yamuna", 2) is None  # nothing was recorded, so the same file can be sent again later
+    assert versions_in_store(store) == {1}
+
+
+def test_a_policy_is_accepted_on_its_effective_date(paths):
+    service, registry, store = make_service(paths)
+    on_the_day = IngestionService(registry, store, HashingEmbedder(), today=lambda: date(2026, 12, 1))
+    assert on_the_day.ingest(dated(YAMUNA_V2, "2026-12-01")).activated
 
 
 def test_failed_embedding_keeps_old_version_live(paths):

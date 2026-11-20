@@ -57,6 +57,15 @@ class VersionConflict(AppError):
     """A policy version can't be ingested in the registry's current state."""
 
 
+class PolicyNotYetEffective(AppError):
+    """The document's effective date is still in the future. Nothing has been stored."""
+
+    def __init__(self, effective_from, live_version: int | None):
+        super().__init__(f"effective from {effective_from}, live version {live_version}")
+        self.effective_from = effective_from
+        self.live_version = live_version
+
+
 class IngestionFailed(AppError):
     """Ingesting a policy failed part-way. The previously live version is unchanged."""
 

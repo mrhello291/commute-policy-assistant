@@ -10,7 +10,7 @@ import logging
 import re
 from pathlib import Path
 
-from app.errors import AppError, VersionConflict
+from app.errors import AppError, PolicyNotYetEffective, VersionConflict
 from app.policies.ingestion import IngestionReport, IngestionService
 
 log = logging.getLogger(__name__)
@@ -50,6 +50,8 @@ class PolicySeeder:
                 reports.append(self._ingestion.ingest(path.read_bytes()))
             except VersionConflict:
                 log.info("skipping %s, a newer version is already live", path)
+            except PolicyNotYetEffective as exc:
+                log.warning("skipping %s until it takes effect on %s", path, exc.effective_from)
             except AppError:
                 # One broken file shouldn't stop the other companies loading.
                 log.exception("could not load %s", path)

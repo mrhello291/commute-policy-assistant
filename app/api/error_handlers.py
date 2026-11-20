@@ -21,6 +21,7 @@ from app.errors import (
     IngestionFailed,
     PermissionDenied,
     PolicyFormatError,
+    PolicyNotYetEffective,
     TooManyAttempts,
     UnknownCompany,
     UnknownEmployee,
@@ -112,6 +113,14 @@ def install(app: FastAPI) -> None:
     async def on_version_conflict(request: Request, exc: VersionConflict):
         message = messages.POLICY_VERSION_CONFLICT.format(reason=str(exc).capitalize())
         return JSONResponse(error_body(request, "version_conflict", message), status_code=409)
+
+    @app.exception_handler(PolicyNotYetEffective)
+    async def on_not_yet_effective(request: Request, exc: PolicyNotYetEffective):
+        current = f"version {exc.live_version}" if exc.live_version is not None else "no policy"
+        message = messages.POLICY_NOT_YET_EFFECTIVE.format(
+            date=f"{exc.effective_from.day} {exc.effective_from:%B %Y}", current=current
+        )
+        return JSONResponse(error_body(request, "not_yet_effective", message), status_code=409)
 
     @app.exception_handler(IngestionFailed)
     async def on_ingestion_failed(request: Request, exc: IngestionFailed):
