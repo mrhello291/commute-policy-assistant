@@ -7,6 +7,9 @@ and section it used, and says plainly when the policy doesn't cover the question
 Three fictional companies share one service. Their policies cover the same topics with deliberately
 contradictory rules, so any leak from one company to another would show up in an answer.
 
+Each company's policy admin uploads new versions as PDFs, and the new version answers as soon as the
+upload returns. Before uploading one, see [What a policy PDF needs](#what-a-policy-pdf-needs).
+
 ---
 
 ## Run it
@@ -154,9 +157,52 @@ Sign-in errors have the same `{status, message, request_id}` shape:
 | 401 | `unauthorized` | Missing, forged, expired, logged-out or superseded token, or the employee has since left or changed role |
 | 503 | `auth_unavailable` | The token store can't be read. Requests fail closed, with `Retry-After` |
 
+### What a policy PDF needs
+
+Check these before uploading. A PDF that misses one is refused with a message naming the problem
+(422), and the live version keeps answering. Nothing is guessed, because every answer cites a section
+number and a version.
+
+1. **A text PDF**, as a word processor or a browser's print to PDF makes one (Word-style, LibreOffice
+   and Chrome exports are tested). A scan has no text to cite, so run OCR first. No password, at most 10 MB and 150 pages, one column of text.
+2. **A document-control block on page 1, before the first section**, as a table or as
+   `Label: value` lines:
+
+   | Label | Rule |
+   |---|---|
+   | **Document ID** (or Document number, Doc ID) | Required |
+   | **Version** | Required. A whole number (`3`, not `v3` or `2.0`), higher than the live version |
+   | **Effective from** (or Effective date) | Required. A date: `2026-12-01`, `1 December 2026`, `1st Dec 2026`, `December 1, 2026` |
+   | Company, Company ID | Optional. Left out, the policy is filed under your company. If given, the Company ID must be yours |
+   | Title (or Policy title) | Optional when the title is the largest text on page 1 |
+
+3. **Numbered section headings, in bold or a larger size than the body text**: `4. Night travel`,
+   `4.2 Security escort`. `Section 4: …`, `Clause 4 - …`, `4) …`, `4.0 …` and `IV. …` are read as
+   section 4. Each number is used once, and a subsection comes after its parent (`4.2` under `4`).
+   Headings without numbers, or set apart only by colour, can't be cited and are refused.
+
+Running headers and footers, "Page X of Y", a contents page, tables and bullet lists are all fine.
+A first page that works:
+
+```text
+Kaveri Foods Employee Transport Policy        ← the largest text on page 1
+
+Document ID     kaveri-transport-policy
+Version         3
+Effective from  1 December 2026
+
+1. Purpose and scope                          ← bold or larger
+1.1 Purpose
+This policy explains who can use company transport ...
+```
+
+How the parser reads all this, and what it was tested on, is in
+[design §4](#4-reading-policy-pdfs-by-layout-refusing-what-cant-be-cited).
+
 ### Uploading a policy
 
-Sign in as the company's policy admin, then send the PDF. After `@`, give the path to the file on
+Check the PDF against [What a policy PDF needs](#what-a-policy-pdf-needs), sign in as the company's
+policy admin, then send the PDF. After `@`, give the path to the file on
 your own machine; curl reads it and uploads it.
 
 ```bash
@@ -182,9 +228,8 @@ then the uploader's company is used.
 
 **A new version for an existing company.** Make a v3 PDF: copy
 `data/archive/markdown-policies/yamuna/v2.md`, change `version: 2` to `version: 3` and a rule or two,
-and run `python scripts/make_policy_pdfs.py yamuna-v3.md yamuna-v3.pdf`. (Any PDF laid out the same way
-works: a document-control block on page 1 with at least Document ID, Version and Effective from, and
-numbered headings in bold or a larger size.) Upload it with the two commands in
+and run `python scripts/make_policy_pdfs.py yamuna-v3.md yamuna-v3.pdf`. (Any PDF that meets
+[What a policy PDF needs](#what-a-policy-pdf-needs) works.) Upload it with the two commands in
 [Uploading a policy](#uploading-a-policy).
 
 Questions now cite v3 only. An older version number gets a 409 and changes nothing.
