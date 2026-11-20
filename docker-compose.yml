@@ -3,6 +3,13 @@ services:
     build: .
     ports:
       - "8000:8000"
+    # Docker's default of 1024 open files is low for a web server: every open
+    # connection takes one. The test suite itself fits in 1024 (it closes what
+    # it opens, and tests/test_teardown.py fails if that regresses).
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     env_file:
       - path: .env
         required: false
