@@ -647,7 +647,47 @@ sections as the Markdown parser, so chunking, embedding, the registry and citati
 The risk with PDF is specific. A PDF has no headings or paragraphs, only text placed on a page in some
 font, and a section boundary guessed wrong doesn't fail: it produces a confident answer citing §4.2 for
 text that came from §4.3. So the parser works from the layout, and refuses what it can't read with
-confidence instead of guessing:
+confidence instead of guessing. The steps run in this order, and each refusal happens before
+anything is stored:
+
+```mermaid
+flowchart TB
+    IN(["Uploaded file<br/>POST /v1/policies or the startup seeder"]) --> FMT{{"What is it?<br/>decided by content, not file name"}}
+    FMT -->|"starts with %PDF-"| OPEN
+    FMT -->|"front matter ---"| MD["Markdown parser<br/>hand-written documents, tests"]
+    FMT -->|"anything else"| R0["not a PDF"]
+
+    OPEN["<b>① Open</b> with pdfplumber"] --> READ
+    OPEN --> R1["password-protected, damaged,<br/>over 10 MB or 150 pages"]
+    READ["<b>② Read layout lines</b><br/>each line's text, font size and boldness<br/>tables as rows: Trip type: Airport; Cap: 1,500"] --> STRIP
+    READ --> R2["a page that is only an image (a scan),<br/>fonts with no Unicode mapping"]
+    STRIP["<b>③ Strip running text</b><br/>lines near the top or bottom edge that repeat<br/>on most pages, digits ignored · bare page numbers"] --> BODY
+    BODY["<b>④ Body size</b> = the most common font size"] --> HEAD
+    HEAD["<b>⑤ Headings</b> = a section number<br/>AND bold or larger than body<br/>a numbered list in body type stays text<br/>wrapped titles joined · contents lines skipped"] --> DC
+    HEAD --> R3["no numbered heading<br/>stands out"]
+    DC["<b>⑥ Document control</b>, before the first heading<br/>Company · Company ID · Document ID<br/>Version · Effective from"] --> SEC
+    DC --> R4["version not a whole number,<br/>bad date, missing field"]
+    SEC["<b>⑦ Sections with page ranges</b><br/>paragraphs from line spacing · page-break joins<br/>bullets kept · hyphens undone<br/>pages = heading's page → last page of its text"] --> DOC
+    SEC --> R5["duplicate number, outside its<br/>parent, nested over 4 levels"]
+    MD -->|"same metadata<br/>and section rules"| DOC
+    DOC(["PolicyDocument + SHA-256 checksum<br/>the same shape for PDF and Markdown,<br/>so chunking, registry and citations don't change"])
+
+    classDef step fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+    classDef gate fill:#f1f5f9,stroke:#334155,stroke-width:2px,color:#0f172a
+    classDef alt fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#2e1065
+    classDef ok fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#052e16
+    classDef bad fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#450a0a
+    classDef client fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#1e1b4b
+    class IN client
+    class FMT gate
+    class OPEN,READ,STRIP,BODY,HEAD,DC,SEC step
+    class MD alt
+    class DOC ok
+    class R0,R1,R2,R3,R4,R5 bad
+```
+
+Every red box is a 422 `invalid_policy` whose message names the problem (and the page, for a scan),
+and the live version keeps answering. What each rule handles:
 
 | PDF problem | What the parser does |
 |---|---|
