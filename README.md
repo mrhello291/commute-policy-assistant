@@ -14,6 +14,17 @@ This README is the ten-minute version. The reasoning behind each decision is in
 evaluation in [docs/EVALUATION.md](docs/EVALUATION.md) and the sample policies in
 [docs/POLICY_DATA.md](docs/POLICY_DATA.md).
 
+## Demo
+
+[![A frame from the demo: asking for another company's rules in the request body is rejected with HTTP 422](docs/images/demo.png)](demo/demo.mp4)
+
+**[Watch the demo (1:49, no sound)](demo/demo.mp4).** A caption above the terminal says what each step
+shows. It runs against the live service and the real LLM, in this order: one-command start-up, the
+question API behind a JWT, a 422 for a company named in the request body, one question asked as an
+employee of each company, the planted prompt injection, a cross-company request, and a policy update
+(a damaged PDF is refused, then v3 replaces v2). It ends with the evaluation results. Tab switches
+and waits are cut out.
+
 ---
 
 ## Run it
@@ -503,6 +514,7 @@ scripts/         bench.py (latency), load_test.py (many questions at once), make
                  check_pdf_producers.py (reads the policies laid out by Word, Writer and Chrome)
 constraints.txt  exact versions of every package in the tested image
 docs/            DESIGN.md, INGESTION.md, EVALUATION.md, POLICY_DATA.md, images/
+demo/demo.mp4    the demo recording
 ```
 
 ## Known limitations
