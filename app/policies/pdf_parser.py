@@ -32,6 +32,9 @@ The steps, and the PDF problem each one handles:
    contents lines (dot leaders and a page number) are skipped.
 5. Rebuild paragraphs from line spacing, join a paragraph that a page break
    cut in two, keep bullet items as `- ` lines, and undo hyphenation.
+   Bullets are found however the producing tool drew them: a text glyph, a
+   Symbol/Wingdings private-use character (Word), a glyph placed as its own
+   line (LibreOffice) or a small drawn dot (browsers' print to PDF).
 6. Apply the same section rules as Markdown: unique numbers, each subsection
    inside its parent.
 
@@ -69,6 +72,10 @@ _NUMBERED = re.compile(r"^(\d{1,3}(?:\.\d{1,3}){0,5})\.?\s+(\S.*)$")
 _TOC_ENTRY = re.compile(r"(\.\s*){4,}\s*\d+$|\.{4,}\s*\d+$")
 _PAGE_NUMBER = re.compile(r"^(page\s*)?\d+(\s*(of|/)\s*\d+)?$|^[-–]\s*\d+\s*[-–]$", re.IGNORECASE)
 _BULLET = re.compile(r"^(?:[•▪●◦‣⁃∙·*\-–]|\(cid:\d+\))\s+(.*)$")
+# A bullet glyph on its own, as LibreOffice places it: a separate text line
+# at the left of the item, in a symbol font.
+_LONE_BULLET = re.compile(r"^(?:[•▪●◦○■□‣⁃∙·*\-–➢➤►✓✔]|\(cid:\d+\))$")
+_SYMBOL_FONT = re.compile(r"symbol|wingding|webding|dingbat", re.IGNORECASE)
 _CID = re.compile(r"\(cid:\d+\)")
 _BOLD_FONT = re.compile(r"bold|black|heavy|semibold|demi", re.IGNORECASE)
 _SENTENCE_END = re.compile(r"[.!?:]['\")”’]?$")
@@ -117,6 +124,7 @@ class _Line:
     size: float
     bold: float  # share of the line's characters set in a bold font
     rows: list[list[str]] | None = None  # set when this "line" is a whole table
+    x1: float = 0.0
 
     @property
     def is_table(self) -> bool:
@@ -212,10 +220,12 @@ class PdfPolicyParser:
             return not any(x0 <= cx <= x1 and top <= cy <= bottom for x0, top, x1, bottom in boxes)
 
         text_page = page.filter(outside_tables) if boxes else page
+        lines = []
         for raw in text_page.extract_text_lines(layout=False, strip=True, return_chars=True):
             line = self._make_line(raw, number)
             if line is not None:
-                result.lines.append(line)
+                lines.append(line)
+        result.lines.extend(_attach_bullets(lines, _drawn_bullets(page, boxes)))
 
         for table in tables:
             rows = [[_clean(cell or "") for cell in row] for row in table.extract()]
@@ -229,16 +239,24 @@ class PdfPolicyParser:
         return result
 
     def _make_line(self, raw: dict, page: int) -> _Line | None:
-        text = _clean(raw["text"])
-        if not text:
-            return None
         chars = [c for c in raw["chars"] if c["text"].strip()]
         if not chars:
+            return None
+        text = raw["text"]
+        if _symbol_bullet(chars):
+            # Word draws bullets in Symbol or Wingdings, as private-use
+            # characters (U+F0B7) that cleaning would delete, or as an "o" in
+            # Courier New. Either way the item would lose its bullet.
+            text = "• " + text[len(chars[0]["text"]) :].lstrip()
+        text = _clean(text)
+        if not text:
             return None
         sizes = Counter(round(c["size"] * 2) / 2 for c in chars)
         size = sizes.most_common(1)[0][0]
         bold = sum(1 for c in chars if _BOLD_FONT.search(c.get("fontname", ""))) / len(chars)
-        return _Line(page, text, float(raw["x0"]), float(raw["top"]), float(raw["bottom"]), size, bold)
+        return _Line(
+            page, text, float(raw["x0"]), float(raw["top"]), float(raw["bottom"]), size, bold, x1=float(raw["x1"])
+        )
 
     def _refuse_unreadable(self, pages: list[_Page]) -> None:
         scanned = [p.number for p in pages if p.has_images and not p.has_text]
@@ -505,6 +523,9 @@ def _join_lines(fragments: list[str]) -> str:
         elif len(text) > 1 and text.endswith("-") and text[-2].isalpha() and nxt[:1].islower():
             # "night-" + "shift": keep the hyphen, drop the line break.
             text += nxt
+        elif len(text) > 1 and text.endswith("-") and text[-2].isdigit() and nxt[:1].isdigit():
+            # "1800-000-" + "222", "5-" + "10 km": a number broken at its hyphen.
+            text += nxt
         else:
             text = f"{text} {nxt}"
     return _CID.sub("", text).replace("­", "").strip()
@@ -521,6 +542,66 @@ def _table_text(rows: list[list[str]]) -> str:
             "; ".join(f"{h}: {c}" if h else c for h, c in zip(header, row, strict=True) if c) for row in rows[1:]
         )
     return "\n".join(" ".join(c for c in row if c) for row in rows)
+
+
+def _symbol_bullet(chars: list[dict]) -> bool:
+    """Whether a line starts with a bullet drawn as a symbol-font character."""
+    if len(chars) < 2 or len(chars[0]["text"]) != 1 or chars[1]["x0"] - chars[0]["x1"] < 1.5:
+        return False
+    glyph, font, next_font = chars[0]["text"], chars[0].get("fontname", ""), chars[1].get("fontname", "")
+    if unicodedata.category(glyph) == "Co":
+        return True
+    if _SYMBOL_FONT.search(font) and glyph in "§Øüvq":  # Wingdings bullets mapped to Latin letters
+        return True
+    return glyph == "o" and "courier" in font.lower() and "courier" not in next_font.lower()
+
+
+def _drawn_bullets(page, table_boxes: list[tuple]) -> list[tuple[float, float, float, float]]:
+    """Small dots and squares drawn as shapes, as browsers draw list bullets."""
+    found = []
+    for obj in page.curves + page.rects:
+        width, height = obj["x1"] - obj["x0"], obj["bottom"] - obj["top"]
+        if not (1.5 <= width <= 8 and 1.5 <= height <= 8 and 0.6 <= width / height <= 1.6):
+            continue
+        cx, cy = (obj["x0"] + obj["x1"]) / 2, (obj["top"] + obj["bottom"]) / 2
+        if any(x0 <= cx <= x1 and top <= cy <= bottom for x0, top, x1, bottom in table_boxes):
+            continue
+        found.append((float(obj["x0"]), float(obj["x1"]), float(obj["top"]), float(obj["bottom"])))
+    return found
+
+
+def _attach_bullets(lines: list[_Line], shapes: list[tuple[float, float, float, float]]) -> list[_Line]:
+    """Put a bullet that sits apart from its text back at the start of the line.
+
+    The marker (a lone glyph line or a drawn shape) must sit just left of the
+    line and at its height. Lone glyphs that mark nothing are kept as text.
+    """
+    glyphs = [line for line in lines if _LONE_BULLET.match(line.text)]
+    markers = [(g.x0, g.x1 or g.x0 + g.size * 0.6, g.top, g.bottom, g) for g in glyphs]
+    markers += [(*shape, None) for shape in shapes]
+    used: set[int] = set()
+    out = []
+    for line in lines:
+        if any(line is g for g in glyphs) or _BULLET.match(line.text):
+            out.append(line)
+            continue
+        for i, (x0, x1, top, bottom, _) in enumerate(markers):
+            centre = (top + bottom) / 2
+            if (
+                i not in used
+                and x1 <= line.x0 + 0.5
+                and line.x0 - x1 <= 3 * max(line.size, 6)
+                and line.top - 1 <= centre <= line.bottom + 1
+            ):
+                used.add(i)
+                # The line now starts at its bullet, as when the glyph is inline,
+                # so a wrapped second line still reads as indented under it.
+                line.text = f"• {line.text}"
+                line.x0 = x0
+                break
+        out.append(line)
+    taken = {id(markers[i][4]) for i in used if markers[i][4] is not None}
+    return [line for line in out if id(line) not in taken]
 
 
 def _is_real_table(table) -> bool:

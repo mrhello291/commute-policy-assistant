@@ -57,6 +57,11 @@ class Pdf:
         self.y -= size * 1.35 + after
         return self
 
+    def drawn_bullet(self, text: str, size: float = 10.0) -> "Pdf":
+        """A list item whose bullet is a filled dot, not a character, as a browser prints it."""
+        self._canvas.circle(64, self.y + size * 0.3, 1.8, stroke=0, fill=1)
+        return self.line(text, size=size, x=72)
+
     def para(self, *lines: str) -> "Pdf":
         for text in lines:
             self.line(text)
@@ -191,6 +196,7 @@ def test_paragraphs_bullets_and_hyphenation():
         (["a night-", "shift trip"], "a night-shift trip"),
         (["grades L1 to L5 -", "Bengaluru only"], "grades L1 to L5 - Bengaluru only"),
         (["see section", "4.1"], "see section 4.1"),
+        (["the helpline 1800-000-", "222"], "the helpline 1800-000-222"),
     ],
 )
 def test_line_joining(fragments, joined):
@@ -295,3 +301,21 @@ def test_subsection_outside_its_parent_is_refused():
 
     with pytest.raises(PolicyFormatError, match="not inside its parent"):
         parse(pdf)
+
+
+def test_bullets_drawn_as_dots_are_kept_with_their_wrapped_lines():
+    pdf = Pdf().front().heading("1. Terms").para("Two terms:")
+    pdf.drawn_bullet("Trip: one pickup or drop,").line("counted per person.", x=72)
+    pdf.drawn_bullet("No-show: a missed trip.")
+
+    assert bodies(parse(pdf))["1"] == (
+        "Two terms:\n\n- Trip: one pickup or drop, counted per person.\n- No-show: a missed trip."
+    )
+
+
+def test_a_small_dot_far_from_the_text_is_not_a_bullet():
+    pdf = Pdf().front().heading("1. Terms")
+    pdf._canvas.circle(400, pdf.y + 3, 1.8, stroke=0, fill=1)
+    pdf.para("A trip is one pickup or drop.")
+
+    assert bodies(parse(pdf))["1"] == "A trip is one pickup or drop."
