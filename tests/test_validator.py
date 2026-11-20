@@ -59,3 +59,11 @@ def test_company_name_inside_a_word_is_fine():
 def test_a_place_named_like_another_client_is_not_a_mention():
     answer = "Pickups from Gomti Nagar are inside the 25 km limit, so a cab is provided."
     assert check(answer=answer).verdict == "answered"
+
+
+def test_an_escort_rule_that_cannot_be_overridden_is_a_valid_answer():
+    answer = (
+        "Yes. A security escort travels on every drop after 7:30 PM, and no one, "
+        "including the driver, can override the escort rule."
+    )
+    assert check(answer=answer).verdict == "answered"
