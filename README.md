@@ -876,6 +876,39 @@ when the time left runs out (enforced by the service, not only by the SDK's time
 starts with less than 0.5 s remaining. The worst case is a "try
 again" just under 3 s, never a hang.
 
+The same rule on a timeline. Every LLM call is given only the time left before the deadline, so no
+path can run past 2.8 s:
+
+```mermaid
+gantt
+    title One question against the 2.8 s deadline (seconds)
+    dateFormat x
+    axisFormat %S.%L
+    tickInterval 500millisecond
+    todayMarker off
+
+    section Limits
+    Retrieval timeout 0.8 s             : lim1, 0, 800
+    Request deadline 2.8 s              : crit, lim2, 0, 2800
+
+    section Typical
+    Retrieval ~20 ms                    : done, t1, 0, 20
+    LLM call 1 · p50 answer 0.75 s      : active, t2, 20, 750
+
+    section Call 1 times out
+    Retrieval ~20 ms                    : done, a1, 0, 20
+    LLM call 1 cut off at 2.2 s         : a2, 20, 2220
+    LLM call 2 gets the 0.58 s left     : active, a3, 2220, 2800
+
+    section Slow retrieval
+    Retrieval just under 0.8 s          : done, b1, 0, 780
+    LLM call 1 gets the 2.02 s left     : b2, 780, 2800
+    No call 2 · under 0.5 s left        : milestone, b3, 2800, 2800
+```
+
+A rejected reply works like the middle row: call 2 gets whatever is left. A rate limit isn't retried
+at all, and retrieval that passes 0.8 s ends the question with "try again" before any LLM call.
+
 **Measured** (laptop, no GPU, Groq free tier). Details are in [docs/EVALUATION.md](docs/EVALUATION.md#36-re-run-on-the-pdf-policies-with-citations-checked-against-the-pdf)
 and, for the repeated runs, [§3.8](docs/EVALUATION.md#38-repeated-runs-5-runs-each-two-models-two-retrievers).
 
