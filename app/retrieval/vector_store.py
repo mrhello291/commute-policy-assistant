@@ -1,8 +1,10 @@
 """Policy chunks in Chroma, one collection per company.
 
 Keeping each company in its own collection makes isolation structural: the
-collection name comes from the caller's token, so a query physically cannot
-reach another company's vectors, even if a metadata filter were wrong. Each
+collection name comes from the caller's token, so a query can't be written
+that reaches another company's vectors, even if a metadata filter were wrong.
+It is one process and one Chroma client, so this is a rule the code keeps,
+not a physical wall: hence the re-check in the retriever. Each
 chunk still records its company and version so results can be checked again
 on the way out.
 """
