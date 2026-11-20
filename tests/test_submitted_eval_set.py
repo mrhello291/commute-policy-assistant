@@ -34,3 +34,11 @@ def test_summary_matches_the_lines():
     assert summary["cases"] == len(LINES)
     assert summary["passed"] == sum(line["pass"] for line in LINES)
     assert summary["leaks"] == 0
+
+
+def test_the_properties_that_must_always_hold_held_in_every_case():
+    """Own company only, newest version only, every answer cited, every citation matching the PDF."""
+    requirements = json.loads(EVAL_SET_FILE.with_suffix(".summary.json").read_text())["requirements"]
+    for name, counts in requirements.items():
+        assert counts["cases"] > 0, name
+        assert counts["held"] == counts["cases"], name

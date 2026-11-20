@@ -57,3 +57,33 @@ def test_runner_writes_the_required_fields(tmp_path):
     assert other_company["actual"]["status"] == "other_company" and other_company["pass"]
     assert summary["config"]["llm_available"] is False
     assert out.with_suffix(".summary.json").exists()
+
+
+def test_rescore_gives_the_same_scores_for_the_same_answers(tmp_path):
+    from evaluation.run import rescore
+
+    out = tmp_path / "results.jsonl"
+    args = argparse.Namespace(
+        retriever="dense",
+        llm="none",
+        embedder="hashing",
+        cases=str(CASES_FILE),
+        only="yam-01,yam-16,med-02",
+        no_headers=False,
+        name=None,
+        out=str(out),
+        pace=0,
+    )
+    first = run(args)
+    lines = [json.loads(line) for line in out.read_text().splitlines()]
+    lines[0]["notes"] = "rate limited, retried after 30s; " + lines[0]["notes"]
+    out.write_text("".join(json.dumps(line) + "\n" for line in lines))
+
+    again = rescore(out)
+
+    rescored = [json.loads(line) for line in out.read_text().splitlines()]
+    assert [line["pass"] for line in rescored] == [line["pass"] for line in lines]
+    assert [line["actual"] for line in rescored] == [line["actual"] for line in lines]
+    assert rescored[0]["notes"].startswith("rate limited, retried after 30s")
+    assert again["config"] == first["config"]
+    assert again["requirements"]["newest_version_only"] == {"held": 3, "cases": 3}

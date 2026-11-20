@@ -32,11 +32,50 @@
       "cases": 2
     }
   },
+  "requirements": {
+    "own_company_only": {
+      "held": 58,
+      "cases": 58
+    },
+    "other_company_refused": {
+      "held": 5,
+      "cases": 5
+    },
+    "answers_with_citation": {
+      "held": 42,
+      "cases": 42
+    },
+    "citations_match_pdf": {
+      "held": 42,
+      "cases": 42
+    },
+    "newest_version_only": {
+      "held": 58,
+      "cases": 58
+    },
+    "no_forbidden_text": {
+      "held": 58,
+      "cases": 58
+    }
+  },
   "retrieval": {
     "cases_with_gold": 43,
+    "gold_first": 35,
+    "gold_in_top_3": 42,
     "hit_at_1": 0.814,
     "hit_at_3": 0.977,
-    "mrr": 0.891
+    "mrr": 0.891,
+    "recall_at_3": 0.959,
+    "precision_at_3": 0.326,
+    "precision_at_3_best_possible": 0.349,
+    "missed": [
+      "yam-26"
+    ],
+    "evidence_gate": {
+      "answerable_stopped": [],
+      "not_covered_stopped": 1,
+      "not_covered_cases": 10
+    }
   },
   "citations": {
     "total": 44,
