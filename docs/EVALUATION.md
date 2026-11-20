@@ -167,13 +167,13 @@ appear. The forbidden facts are the other companies' contradictory values, retir
 injected text. `tests/test_eval_cases.py` checks that every expected fact actually appears in its gold
 section of the policy file, so the gold answers come from the documents rather than from memory.
 
-### Automated tests: `tests/`, 504 tests, no network
+### Automated tests: `tests/`, no network
 
 | Area | Examples |
 |---|---|
 | Isolation | Each company is queried with the other companies' names, numbers and terms at k=100, and nothing foreign comes back. A poisoned result trips the tenant check. A body containing `company_id`, `version` or `filter` is rejected with 422 before any work happens |
 | Versioning | v2 replaces v1 completely. An embedding failure, or a store crash half-way through writing, leaves v1 live with no v2 chunks. A process crash between write and activation is cleaned up by `reconcile()`. Four parallel uploads of the same version leave one clean copy. Old versions can't be re-activated |
-| Call budget | Endless garbage replies still stop at 2 calls. A rate limit isn't retried. No retry starts with less than 0.5 s left. Each call's timeout is clipped to the remaining deadline |
+| Call budget | Endless garbage replies still stop at 2 calls. A rate limit isn't retried. No call starts with less than 0.8 s left. Each call's timeout is clipped to the remaining deadline |
 | Failure UX | Slow retrieval returns "try again" within the timeout. Retrieval errors, provider outages and a missing key each give a plain message with no exception text. Unexpected errors return 500 with a clean body |
 | Model output | Invalid JSON, unknown citation labels, answers naming another client, echoed fence markers, instruction-like text |
 | Auth | Expired, forged, `alg=none`, wrong-audience and missing-claim tokens. Role checks. An admin can't upload another company's policy |
