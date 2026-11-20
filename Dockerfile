@@ -11,8 +11,8 @@ RUN useradd --create-home --uid 1000 app && mkdir -p /data /srv && chown app:app
 WORKDIR /srv
 
 # Install dependencies first so code edits don't invalidate this layer.
-COPY pyproject.toml README.md ./
-RUN mkdir app && touch app/__init__.py && pip install ".[dev]" && rm -rf app
+COPY pyproject.toml README.md constraints.txt ./
+RUN mkdir app && touch app/__init__.py && pip install -c constraints.txt ".[dev]" && rm -rf app
 
 USER app
 # Download the MiniLM embedding model at build time, so the container starts
