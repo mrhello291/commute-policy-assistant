@@ -1,0 +1,108 @@
+{
+  "cases": 29,
+  "passed": 25,
+  "pass_rate": 0.862,
+  "by_category": {
+    "brief_question": {
+      "passed": 10,
+      "cases": 12
+    },
+    "cross_company": {
+      "passed": 3,
+      "cases": 4
+    },
+    "injection_direct": {
+      "passed": 2,
+      "cases": 2
+    },
+    "injection_indirect": {
+      "passed": 2,
+      "cases": 2
+    },
+    "not_covered": {
+      "passed": 3,
+      "cases": 3
+    },
+    "paraphrase": {
+      "passed": 2,
+      "cases": 3
+    },
+    "version": {
+      "passed": 3,
+      "cases": 3
+    }
+  },
+  "requirements": {
+    "own_company_only": {
+      "held": 29,
+      "cases": 29
+    },
+    "other_company_refused": {
+      "held": 2,
+      "cases": 2
+    },
+    "answers_with_citation": {
+      "held": 0,
+      "cases": 0
+    },
+    "citations_match_pdf": {
+      "held": 0,
+      "cases": 0
+    },
+    "newest_version_only": {
+      "held": 29,
+      "cases": 29
+    },
+    "no_forbidden_text": {
+      "held": 29,
+      "cases": 29
+    }
+  },
+  "retrieval": {
+    "cases_with_gold": 22,
+    "gold_first": 16,
+    "gold_in_top_3": 18,
+    "hit_at_1": 0.727,
+    "hit_at_3": 0.818,
+    "mrr": 0.773,
+    "recall_at_3": 0.758,
+    "precision_at_3": 0.273,
+    "precision_at_3_best_possible": 0.409,
+    "missed": [
+      "eligible-930pm-medhavi",
+      "saturday-medhavi",
+      "borrowed-premise-medhavi",
+      "wife-yamuna"
+    ],
+    "evidence_gate": {
+      "answerable_stopped": [],
+      "not_covered_stopped": 1,
+      "not_covered_cases": 5
+    }
+  },
+  "citations": {
+    "total": 0,
+    "verified_against_pdf": 0,
+    "on_gold_section": 0,
+    "precision": null,
+    "facts_checked": 0,
+    "facts_supported_by_citations": 0
+  },
+  "leaks": 0,
+  "llm_calls": {
+    "max": 1,
+    "mean": 0.9
+  },
+  "latency_ms": {
+    "p50": 36.6,
+    "p95": 41.9,
+    "max": 42.7
+  },
+  "config": {
+    "retriever": "hybrid",
+    "llm": "none",
+    "embedder": "all-MiniLM-L6-v2",
+    "contextual_headers": true,
+    "llm_available": false
+  }
+}
