@@ -15,3 +15,6 @@ __pycache__/
 
 # Local runtime data (SQLite registry, Chroma files)
 var/
+
+# Scratch evaluation runs (only --submit writes the committed eval_set)
+evaluation/results/latest.*

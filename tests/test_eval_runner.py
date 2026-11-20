@@ -5,16 +5,33 @@ import json
 
 import pytest
 
-from evaluation.run import CASES_FILE, EVAL_SET_FILE, RESULTS_DIR, output_path, run
+from evaluation.run import CASES_FILE, EVAL_SET_FILE, LATEST_FILE, RESULTS_DIR, NotSubmittable, output_path, run
 
 
 def _args(**overrides):
-    defaults = {"out": None, "name": None, "retriever": None, "embedder": None, "no_headers": False}
+    defaults = {"out": None, "name": None, "retriever": None, "embedder": None, "no_headers": False, "submit": False}
     return argparse.Namespace(**{**defaults, **overrides})
 
 
-def test_plain_run_with_an_llm_writes_the_submission_file():
-    assert output_path(_args(), "dense", llm_available=True) == EVAL_SET_FILE
+def test_only_submit_writes_the_submission_file():
+    assert output_path(_args(submit=True), "dense", llm_available=True) == EVAL_SET_FILE
+    assert output_path(_args(), "dense", llm_available=True) == LATEST_FILE
+
+
+@pytest.mark.parametrize(
+    ("overrides", "llm_available"),
+    [
+        ({}, False),
+        ({"retriever": "hybrid"}, True),
+        ({"no_headers": True}, True),
+        ({"embedder": "hashing"}, True),
+        ({"name": "try-this"}, True),
+        ({"out": "x.jsonl"}, True),
+    ],
+)
+def test_submit_refuses_anything_but_the_shipped_system(overrides, llm_available):
+    with pytest.raises(NotSubmittable):
+        output_path(_args(submit=True, **overrides), "dense", llm_available)
 
 
 @pytest.mark.parametrize(
@@ -27,7 +44,7 @@ def test_plain_run_with_an_llm_writes_the_submission_file():
         ({"name": "before-plain-chunks"}, True, "before-plain-chunks.jsonl"),
     ],
 )
-def test_other_runs_cannot_overwrite_the_submission_file(overrides, llm_available, expected):
+def test_runs_without_submit_cannot_overwrite_the_submission_file(overrides, llm_available, expected):
     path = output_path(_args(**overrides), "hybrid" if "retriever" in overrides else "dense", llm_available)
     assert path == RESULTS_DIR / expected
     assert path != EVAL_SET_FILE

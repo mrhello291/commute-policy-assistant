@@ -1,6 +1,7 @@
 """Runs the evaluation set and writes one JSONL line per case.
 
-    python -m evaluation.run                       # settings from env / .env
+    python -m evaluation.run                       # settings from env / .env -> results/latest.jsonl
+    python -m evaluation.run --submit              # the same, written to results/eval_set.jsonl
     python -m evaluation.run --retriever dense     # baseline for comparison
     python -m evaluation.run --llm none            # retrieval only, no API key needed
     python -m evaluation.run --rescore evaluation/results/eval_set.jsonl
@@ -16,9 +17,10 @@ whatever state a running server happens to be in.
 Output line format (fixed by the brief): id, input, expected, actual, pass, notes.
 
 `cases.jsonl` holds the questions and what a correct answer must contain. A
-plain run with an LLM writes the scored set, the file the brief asks for, to
-`results/eval_set.jsonl`. Retrieval-only runs and runs with a changed setting
-go to their own file so they can't overwrite it.
+plain run writes `results/latest.jsonl`. Only `--submit` writes the scored set
+the brief asks for, `results/eval_set.jsonl`, and only with a real LLM and the
+shipped settings, so trying something out can never replace the submission.
+Retrieval-only runs and runs with a changed setting go to their own file.
 
 `--rescore` re-applies the current scoring to the answers already saved in a
 results file. Answers vary from run to run; this shows the same answers
@@ -54,6 +56,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CASES_FILE = ROOT / "evaluation" / "cases.jsonl"
 RESULTS_DIR = ROOT / "evaluation" / "results"
 EVAL_SET_FILE = RESULTS_DIR / "eval_set.jsonl"
+LATEST_FILE = RESULTS_DIR / "latest.jsonl"
 REPEATS_DIR = RESULTS_DIR / "repeats"
 POLICY_DIR = ROOT / "data" / "policies"
 RATE_LIMIT_WAIT_S = 30
@@ -124,16 +127,25 @@ def build_settings(args: argparse.Namespace, data_dir: Path) -> Settings:
     return Settings(**overrides)
 
 
+class NotSubmittable(ValueError):
+    """--submit was asked for a run that isn't the shipped system."""
+
+
 def output_path(args: argparse.Namespace, retriever: str, llm_available: bool) -> Path:
+    changed = args.retriever or args.embedder or args.no_headers
+    if getattr(args, "submit", False):
+        if not llm_available or changed or args.out or args.name:
+            raise NotSubmittable("--submit needs a real LLM and the shipped settings, with no --out or --name")
+        return EVAL_SET_FILE
     if args.out:
         return Path(args.out)
     if args.name:
         return RESULTS_DIR / f"{args.name}.jsonl"
     if not llm_available:
         return RESULTS_DIR / "retrieval-only.jsonl"
-    if args.retriever or args.embedder or args.no_headers:
+    if changed:
         return RESULTS_DIR / f"{retriever}.jsonl"
-    return EVAL_SET_FILE
+    return LATEST_FILE
 
 
 def ask_with_backoff(container: Container, case: dict) -> tuple[AnswerResult, list[str]]:
@@ -168,6 +180,7 @@ def _run_cases(args: argparse.Namespace, cases: list[dict], settings: Settings, 
     live_versions = newest_versions(settings.policy_seed_dir)
     container.startup()
     llm_available = container.llm.name != "none"
+    out = output_path(args, settings.retriever, llm_available)  # refuses a bad --submit before any LLM call
     print(
         f"evaluating {len(cases)} cases | retriever={container.retriever.name} "
         f"llm={container.llm.name} embedder={container.embedder.name}",
@@ -207,7 +220,7 @@ def _run_cases(args: argparse.Namespace, cases: list[dict], settings: Settings, 
         "contextual_headers": settings.contextual_headers,
         "llm_available": llm_available,
     }
-    return write_results(rows, output_path(args, settings.retriever, llm_available), config)
+    return write_results(rows, out, config)
 
 
 def repeat(args: argparse.Namespace, repeats_dir: Path = REPEATS_DIR) -> dict | None:
@@ -340,6 +353,9 @@ def main() -> None:
     parser.add_argument("--out", help="explicit output path")
     parser.add_argument("--repeat", type=int, metavar="N", help="run N times and combine (resumes if stopped)")
     parser.add_argument(
+        "--submit", action="store_true", help="write the submitted results/eval_set.jsonl (shipped settings only)"
+    )
+    parser.add_argument(
         "--pace",
         type=float,
         default=8.0,
@@ -347,6 +363,8 @@ def main() -> None:
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+    if args.submit and (args.repeat or args.rescore):
+        parser.error("--submit is a single plain run; it can't be combined with --repeat or --rescore")
     if args.rescore:
         rescore(Path(args.rescore))
     elif args.repeat:

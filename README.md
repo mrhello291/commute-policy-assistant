@@ -43,7 +43,7 @@ Without an API key the service still starts. Retrieval works, and questions get 
 | What | Command |
 |---|---|
 | Tests (no network or key needed; they fit in Docker's default 1,024 open files) | `docker compose run --rm app pytest` |
-| Evaluation set (uses the LLM from `.env`, about 6 min, paced for free-tier limits). Writes `evaluation/results/eval_set.jsonl` | `docker compose run --rm app python -m evaluation.run` |
+| Evaluation set (uses the LLM from `.env`, paced for free-tier limits). Writes `evaluation/results/latest.jsonl`; `--submit` replaces the submitted `eval_set.jsonl` instead | `docker compose run --rm app python -m evaluation.run` |
 | Evaluation without a key (retrieval only) | `docker compose run --rm app python -m evaluation.run --llm none` |
 | Re-score saved answers with the current checks (no LLM calls) | `docker compose run --rm app python -m evaluation.run --rescore evaluation/results/eval_set.jsonl` |
 | Run the evaluation 5 times, mean ± std (resumes if a quota stops it) | `docker compose run --rm app python -m evaluation.run --llm groq --retriever dense --repeat 5` |
