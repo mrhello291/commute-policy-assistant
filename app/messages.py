@@ -6,9 +6,10 @@ happened and what to do next, in plain words, with no internal detail.
 
 SESSION_INVALID = "Your session is not valid or has expired. Please sign in again."
 SIGN_IN_UNAVAILABLE = "Sign-in can't be checked right now. Please try again in a minute."
-UNKNOWN_COMPANY = "We don't recognise that company. Please choose your company from the list and try again."
-UNKNOWN_EMPLOYEE = (
-    "No employee with that ID works at {company}. Check your employee ID and try again, or contact your transport desk."
+# One message whether the company code or the employee ID is wrong, so the
+# sign-in form can't be used to find out which companies are our clients.
+UNKNOWN_ACCOUNT = (
+    "We couldn't find that employee ID at that company. Check both and try again, or contact your transport desk."
 )
 ACCOUNT_INACTIVE = (
     "Your {company} employee account is no longer active, so you can't sign in. "

@@ -32,20 +32,20 @@ def test_role_comes_from_the_directory_not_the_request(client):
     assert login(client, "yamuna", "YAM-1001").json()["employee"]["role"] == "employee"
 
 
-def test_unknown_company(client):
-    response = login(client, "nosuchco", "YAM-1001")
-    assert response.status_code == 401
-    assert response.json()["status"] == "unknown_company"
+def test_a_wrong_company_code_and_a_wrong_employee_id_get_the_same_reply(client):
+    """The sign-in form must not confirm which companies are clients."""
+    no_company = login(client, "nosuchco", "YAM-1001")
+    wrong_company = login(client, "gomti", "YAM-1001")
+    no_employee = login(client, "gomti", "GOM-9999")
+    replies = [r.json() for r in (no_company, wrong_company, no_employee)]
+    assert {r.status_code for r in (no_company, wrong_company, no_employee)} == {401}
+    assert {r["status"] for r in replies} == {"unknown_account"}
+    assert len({r["message"] for r in replies}) == 1
+    assert "Gomti" not in no_employee.text and "YAM-1001" not in wrong_company.text
 
 
-def test_employee_of_another_company_is_told_only_that_the_id_is_not_found(client):
-    wrong = login(client, "gomti", "YAM-1001")
-    unknown = login(client, "gomti", "GOM-9999")
-    assert wrong.status_code == unknown.status_code == 401
-    assert wrong.json()["status"] == unknown.json()["status"] == "unknown_employee"
-    assert wrong.json()["message"] == unknown.json()["message"]
-    assert "Gomti Logistics" in wrong.json()["message"]
-    assert "YAM-1001" not in wrong.text
+def test_the_client_list_is_not_published(client):
+    assert client.get("/v1/auth/companies").status_code in {404, 405}
 
 
 def test_inactive_employee(client):
@@ -83,19 +83,11 @@ def test_login_cookie_does_not_authenticate_api_calls(client):
     assert client.get("/v1/me").status_code == 401
 
 
-def test_companies_list_for_the_sign_in_form(client):
-    names = {c["company_id"]: c["company_name"] for c in client.get("/v1/auth/companies").json()}
-    assert names == {
-        "yamuna": "Yamuna Software Services",
-        "gomti": "Gomti Logistics",
-        "medhavi": "Medhavi Health",
-    }
-
-
 def test_sample_accounts_listed_only_in_dev(client, settings):
     accounts = client.get("/dev/accounts").json()
     assert {
         "company_id": "gomti",
+        "company_name": "Gomti Logistics",
         "employee_id": "GOM-2003",
         "name": "Arjun Yadav",
         "role": "employee",

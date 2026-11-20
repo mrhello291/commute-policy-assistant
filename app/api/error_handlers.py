@@ -73,14 +73,13 @@ def install(app: FastAPI) -> None:
             headers={"Retry-After": "30"},
         )
 
+    # Our client list is confidential: an unknown company and an unknown
+    # employee get the same reply, and only the log says which it was.
     @app.exception_handler(UnknownCompany)
-    async def on_unknown_company(request: Request, exc: UnknownCompany):
-        return JSONResponse(error_body(request, "unknown_company", messages.UNKNOWN_COMPANY), status_code=401)
-
     @app.exception_handler(UnknownEmployee)
-    async def on_unknown_employee(request: Request, exc: UnknownEmployee):
-        message = messages.UNKNOWN_EMPLOYEE.format(company=str(exc))
-        return JSONResponse(error_body(request, "unknown_employee", message), status_code=401)
+    async def on_unknown_account(request: Request, exc: UnknownCompany | UnknownEmployee):
+        log.info("sign-in refused request_id=%s reason=%s", request_id(request), type(exc).__name__)
+        return JSONResponse(error_body(request, "unknown_account", messages.UNKNOWN_ACCOUNT), status_code=401)
 
     @app.exception_handler(AccountInactive)
     async def on_account_inactive(request: Request, exc: AccountInactive):

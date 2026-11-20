@@ -23,8 +23,8 @@
   .sub { color: var(--muted); margin: 0 0 20px; }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
   label { display: block; color: var(--muted); font-size: .88rem; margin: 10px 0 4px; }
-  select, input, button { font: inherit; color: inherit; }
-  select, input { width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; }
+  input, button { font: inherit; color: inherit; }
+  input { width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; }
   button, .button { display: inline-block; background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px; padding: 9px 16px; cursor: pointer; font-weight: 600; text-decoration: none; }
   button.secondary, .button.secondary { background: var(--chip); color: var(--text); }
   button:disabled { opacity: .55; cursor: progress; }
@@ -46,11 +46,11 @@
 <body>
 <main>
   <h1>Commute Policy Assistant</h1>
-  <p class="sub">Sign in with your company and employee ID.</p>
+  <p class="sub">Sign in with your company code and employee ID.</p>
 
   <form class="panel" id="form" hidden>
-    <label for="company">Company</label>
-    <select id="company" required></select>
+    <label for="company">Company code</label>
+    <input id="company" placeholder="as given by your transport desk" maxlength="64" autocomplete="organization" required>
     <label for="employee">Employee ID</label>
     <input id="employee" placeholder="e.g. YAM-1001" maxlength="32" autocomplete="username" required>
     <div class="row"><button type="submit" id="submit">Sign in</button></div>
@@ -88,23 +88,12 @@ const TOKEN_KEY = "cpa_token";
 const PROFILE_KEY = "cpa_profile";
 const RETURN_PAGES = ["/", "/docs", "/redoc"];
 const next = new URLSearchParams(location.search).get("next");
-let companyNames = {};
 
 function store(key, value) { try { value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value); } catch (_) {} }
 function load(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
 
 function el(tag, text) { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; return n; }
 
-async function loadCompanies() {
-  const res = await fetch("/v1/auth/companies");
-  const companies = res.ok ? await res.json() : [];
-  for (const c of companies) {
-    companyNames[c.company_id] = c.company_name;
-    const opt = el("option", c.company_name);
-    opt.value = c.company_id;
-    $("company").append(opt);
-  }
-}
 
 async function loadSamples() {
   const res = await fetch("/dev/accounts");
@@ -112,7 +101,7 @@ async function loadSamples() {
   for (const a of await res.json()) {
     const tr = el("tr");
     tr.className = a.active ? "pick" : "pick inactive";
-    for (const v of [a.employee_id, a.name, companyNames[a.company_id] || a.company_id, a.role.replace("_", " ")]) tr.append(el("td", v));
+    for (const v of [a.employee_id, a.name, a.company_name, a.role.replace("_", " ")]) tr.append(el("td", v));
     tr.onclick = () => { $("company").value = a.company_id; $("employee").value = a.employee_id; $("employee").focus(); };
     $("sample-rows").append(tr);
   }
@@ -148,7 +137,7 @@ async function signIn(e) {
   try {
     const res = await fetch("/v1/auth/login", {
       method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({company_id: $("company").value, employee_id: $("employee").value.trim()}),
+      body: JSON.stringify({company_id: $("company").value.trim(), employee_id: $("employee").value.trim()}),
     });
     const body = await res.json();
     if (!res.ok) { $("error").textContent = body.message || "Sign-in failed. Please try again."; return; }
@@ -203,7 +192,6 @@ $("form").onsubmit = signIn;
 $("signout").onclick = signOut;
 
 (async () => {
-  await loadCompanies();
   await loadSamples();
   if (!(await resume())) showForm();
 })();

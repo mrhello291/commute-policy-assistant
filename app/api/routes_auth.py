@@ -62,14 +62,6 @@ class SignedOut(BaseModel):
     message: str = messages.SIGNED_OUT
 
 
-@router.get("/auth/companies", response_model=list[CompanyOut])
-def companies(container: Container = Depends(get_container)) -> list[CompanyOut]:
-    """The companies employees can sign in to (for the sign-in form)."""
-    return [
-        CompanyOut(company_id=c.company_id, company_name=c.company_name) for c in container.auth.directory.companies()
-    ]
-
-
 @router.post("/auth/login", response_model=LoginResponse)
 def login(
     body: LoginRequest,
