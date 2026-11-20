@@ -5,7 +5,9 @@ gets, and how many LLM calls were spent, when things go wrong.
 """
 
 import json
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -259,3 +261,27 @@ def test_an_address_that_shares_a_client_name_is_answered(container, principal, 
     result = ask(make_service(container, llm), question, principal=principal)
     assert result.status is AnswerStatus.ANSWERED
     assert len(llm.calls) == 1
+
+
+def test_a_search_that_timed_out_while_queued_never_runs(container):
+    """Under load, abandoned searches must not keep the workers busy for later questions."""
+
+    class CountingSlowRetriever(SlowRetriever):
+        def __init__(self, seconds):
+            super().__init__(seconds)
+            self.started = 0
+            self._lock = threading.Lock()
+
+        def retrieve(self, *args):
+            with self._lock:
+                self.started += 1
+            return super().retrieve(*args)
+
+    retriever = CountingSlowRetriever(0.5)
+    service = make_service(container, ScriptedLLM([]), retriever=retriever, retrieval_timeout_s=0.05)
+    workers = 8  # the service's retrieval pool
+    with ThreadPoolExecutor(max_workers=workers + 4) as askers:
+        results = list(askers.map(lambda _: ask(service), range(workers + 4)))
+    time.sleep(0.7)  # let the 8 running searches finish; a queued one would start now
+    assert all(r.status is AnswerStatus.TRY_AGAIN for r in results)
+    assert retriever.started == workers

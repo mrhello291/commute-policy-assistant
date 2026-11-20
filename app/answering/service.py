@@ -159,6 +159,12 @@ class QuestionAnsweringService:
         )
         try:
             excerpts = future.result(timeout=self._settings.retrieval_timeout_s)
+        except FutureTimeout:
+            # Under load the wait includes time queued behind other questions.
+            # Drop the search if it hasn't started, or abandoned searches keep
+            # the workers busy and every later question times out as well.
+            future.cancel()
+            raise
         finally:
             diagnostics.retrieval_ms = round((time.perf_counter() - started) * 1000, 1)
         # Hard cap, whatever the retriever returned: at most N excerpts can be cited.
