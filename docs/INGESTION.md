@@ -1,8 +1,9 @@
 # Policy ingestion: how a new version replaces the old one, and why it can't half-update
 
 This is the design of the part of the service that loads a policy document and makes it the one that
-answers. The README has the short version (design decision 3) and a hands-on walkthrough
-([Trying ingestion](../README.md#trying-ingestion-a-new-version-or-a-new-client-company)). This document
+answers. The README has the short version and a hands-on walkthrough
+([Uploading a policy](../README.md#uploading-a-policy)), and [DESIGN.md §3](DESIGN.md#3-a-new-policy-version-replaces-the-old-one-atomically)
+the version rules. This document
 covers how the pieces fit, what happens at every point where it can fail, and which test proves each
 claim.
 
@@ -43,7 +44,8 @@ flowchart TD
     IN["POST /v1/policies with a policy_admin token,<br/>or the startup seeder"] --> P["1 · Parse and validate the whole document in memory<br/>PDF layout or Markdown, document control, version,<br/>numbered sections, checksum"]
     P --> O{{"2 · Document's company = token's company?"}}
     O -->|"yes, take the ingestion lock"| S{{"3 · Same version and checksum already live?"}}
-    S -->|"no"| B["4 · SQLite: row v2 = staging<br/>refused unless newer than every version ever live"]
+    S -->|"no"| D{{"3b · Effective date reached?<br/>today in IST"}}
+    D -->|"yes"| B["4 · SQLite: row v2 = staging<br/>refused unless newer than every version ever live<br/>and the same Document ID as the live version"]
     B --> E["5 · Chunk by section, scan for injected text, embed"]
     E --> W["6 · Chroma: write v2 chunks, ids contain v2<br/>invisible: no read asks for version 2 yet"]
     W --> A["7 · SQLite, ONE transaction: v1 retired, v2 active<br/>COMMIT POINT: new questions now get v2"]
@@ -52,7 +54,8 @@ flowchart TD
 
     P -->|"invalid: 422"| X["Nothing written<br/>v1 keeps answering"]
     O -->|"no: 403"| X
-    B -->|"not newer: 409"| X
+    B -->|"not newer, or another<br/>document: 409"| X
+    D -->|"not yet: 409"| X
     S -->|"yes"| NOOP["200 already active<br/>nothing done"]
     E -->|"error"| F["v2 marked failed, its chunks deleted<br/>503, v1 keeps answering"]
     W -->|"error"| F
@@ -66,7 +69,7 @@ flowchart TD
     classDef safe fill:#ffedd5,stroke:#ea580c,stroke-width:1.5px,color:#431407,stroke-dasharray:4 3
     class IN client
     class P,E,PR,N step
-    class O,S gate
+    class O,S,D gate
     class B,W store
     class A commit
     class X,F,NOOP safe
@@ -180,7 +183,8 @@ raises. "Crash" means the process dies there: `kill -9`, power loss, an out-of-m
 | 1 | Parse and validate | nothing | 422 `invalid_policy`, with the reason | nothing to undo | "could not be read: … Nothing was changed." |
 | 2 | Company check | nothing | 403 | nothing to undo | refused |
 | 3 | Checksum no-op | nothing | n/a | nothing to undo | 200 `already active` |
-| 4 | `registry.begin` | `staging` row | 409 if not newer. The transaction rolls back | SQLite rolls back an unfinished transaction when it next opens the file | "not newer than … Nothing was changed." |
+| 3b | Effective date | nothing | 409 `not_yet_effective` if the date is still to come | nothing to undo | "This document takes effect on 1 December 2026. Please upload it on or after that date … Nothing was changed." |
+| 4 | `registry.begin` | `staging` row | 409 if not newer (`version_conflict`), or if the live version has another Document ID (`different_document`). The transaction rolls back | SQLite rolls back an unfinished transaction when it next opens the file | "not newer than … Nothing was changed.", or the live document's title and ID to update instead |
 | 5 | Chunk, scan, embed | nothing (memory) | row → `failed`, nothing in Chroma | `staging` row, no chunks: reconcile marks it `failed` | 503 `ingestion_failed`: "the previous version is still the one in use" |
 | 6 | `store.add` | v2 chunks, invisible | row → `failed`, the partial chunks deleted | `staging` row plus some or all v2 chunks: reconcile marks it `failed` and deletes them | same 503 |
 | 7 | `registry.activate` | the switch | rolled back, row → `failed`, chunks deleted | transaction rolled back on next open, then as in row 6 | same 503 |
@@ -210,8 +214,9 @@ Two details from the code:
    every company collection in Chroma, delete each chunk whose version isn't the live one (all of them
    if nothing is live).
 3. **Seed** `data/policies/<company>/v*.pdf` in version order. This is safe to run again: the live
-   version is a no-op, older versions get a 409 that the seeder logs and skips, and one broken file
-   doesn't stop the other companies loading.
+   version is a no-op, older versions get a 409 that the seeder logs and skips, a file whose effective
+   date hasn't come yet is skipped until a later start, and one broken file doesn't stop the other
+   companies loading.
 
 Reconcile needs no record of what was in progress. The registry says what is live, and anything else in
 Chroma is garbage by definition. It runs before any request, so it can't remove chunks a question is
@@ -365,6 +370,8 @@ that writes half a batch and then raises "disk full".
 | A failed version can be retried and then goes live | `test_failed_version_can_be_retried` (ingestion and registry) |
 | Re-uploading the live version is a no-op | `test_reingesting_the_live_version_is_a_no_op` |
 | Older versions are refused | `test_older_version_is_refused`, `test_registry.py::test_versions_only_move_forward` |
+| A policy dated in the future is refused and nothing is recorded, so the same file can be sent on the day; on its date it is accepted | `test_a_policy_that_has_not_taken_effect_yet_is_refused`, `test_a_policy_is_accepted_on_its_effective_date`, `test_api_policies.py::test_a_future_dated_upload_says_when_to_send_it` |
+| A different document can't replace a company's live policy | `test_registry.py::test_a_different_document_cannot_replace_the_live_policy`, `test_api_policies.py::test_a_second_document_does_not_replace_the_policy` |
 | Version numbers may skip (v2 → v7) but never go back, and a live number can't be reused for different text | `test_version_numbers_may_skip_but_never_go_back`, `test_live_version_number_cannot_be_reused_for_different_text` |
 | `version` must be a positive whole number (`0`, `2.5`, `'3'`, `v3`, `true` refused) | `test_parser.py::test_version_must_be_a_positive_whole_number` |
 | Through the API, a question after an upload is answered and cited from the new version only | `test_api_policies.py::test_after_an_upload_only_the_new_version_answers` |
@@ -399,12 +406,19 @@ that writes half a batch and then raises "disk full".
   check that the live version's chunks are all present. If Chroma's files were damaged while
   `registry.db` survived, questions would get a safe "not covered" rather than an answer. Storing the
   chunk count in the registry row and comparing it at startup would catch this.
+- **One policy document per company.** A new version must carry the live Document ID, because the live
+  pointer is per company: before this was enforced, a one-section SOP replaced a whole policy. Several
+  documents per company would need the pointer per document, and retrieval across all of a company's
+  live documents.
+- **No scheduled activation.** A policy is uploaded on or after its effective date; one dated in the
+  future is refused rather than held. Holding it would need a `scheduled` state and a clock-driven
+  switch, a second way for a version to go live.
 - **No rollback endpoint.** To go back, re-upload the old text under a new version number. This is
   deliberate: versions only move forward, so the registry history is an audit trail of what was live
   and when.
 - **PDFs are read with layout rules.** Scanned pages are refused rather than OCR'd, and two-column
   layouts aren't detected. How the parser finds sections, and everything it refuses, is in
-  [README, design decision 4](../README.md#4-reading-policy-pdfs-by-layout-refusing-what-cant-be-cited).
+  [DESIGN.md §4](DESIGN.md#4-reading-policy-pdfs-by-layout-refusing-what-cant-be-cited).
   Step 1 is the only step that knows the format: everything after it sees the same `PolicyDocument`.
 - **The original document isn't stored.** Only parsed chunks are kept, so a reviewer can't download
   "exactly what the admin uploaded". The checksum is recorded, so a copy can be verified against it.
